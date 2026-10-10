@@ -356,6 +356,7 @@ export interface UserPermission {
   maintenance_manage_requests?: boolean;
   maintenance_manage_preventive?: boolean;
   maintenance_manage_custody?: boolean;
+  maintenance_manage_stock?: boolean;
   maintenance_post_finance?: boolean;
   maintenance_manage_buildings?: boolean;
   maintenance_export_reports?: boolean;
