@@ -1141,27 +1141,6 @@ function MaintenancePage() {
             </Card>
           </div>}
 
-          {qrModalData && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4">
-            <Card className="w-full max-w-md shadow-2xl">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2"><QrCode size={19}/> QR لطلب الصيانة الذاتي</CardTitle>
-                <CardDescription>{qrModalData.name}</CardDescription>
-              </CardHeader>
-              <CardContent className="flex flex-col items-center gap-4">
-                <div className="rounded-xl border bg-white p-4">
-                  <QRCodeSVG value={qrModalData.url} size={240} includeMargin level="M" />
-                </div>
-                <p className="w-full break-all rounded-lg bg-muted/40 p-3 text-xs text-muted-foreground" dir="ltr">{qrModalData.url}</p>
-                <div className="flex flex-wrap justify-center gap-2">
-                  <Button onClick={() => window.print()} variant="outline"><ClipboardCheck className="ml-2" size={15}/> طباعة QR</Button>
-                  <Button onClick={() => { void navigator.clipboard?.writeText(qrModalData.url); }} variant="outline">نسخ الرابط</Button>
-                  <Button onClick={() => setQrModalData(null)}>إغلاق</Button>
-                </div>
-                <p className="text-center text-[11px] text-muted-foreground">عند مسح الرمز يفتح نموذج بلاغ يحدد المبنى والفرع تلقائيًا.</p>
-              </CardContent>
-            </Card>
-          </div>}
-
           {financeOrderId && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4">
             <Card className="w-full max-w-lg shadow-2xl"><CardHeader><CardTitle>ترحيل تكلفة طلب الصيانة للمالية</CardTitle><CardDescription>سيتم إنشاء سند صرف وقيد محاسبي من خلال نظام المختار الحالي.</CardDescription></CardHeader>
               <CardContent className="space-y-4">
