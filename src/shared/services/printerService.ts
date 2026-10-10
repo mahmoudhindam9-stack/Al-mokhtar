@@ -168,7 +168,9 @@ class ThermalPrinterService {
     const commercialRegister = settings.showCommercialRegister
       ? data.commercialRegister || settings.commercialRegister
       : "";
-    const logoUrl = settings.showLogo ? data.logoUrl || settings.logoUrl : "";
+    const logoUrl = settings.showLogo
+      ? data.logoUrl || settings.logoUrl || `${window.location.origin}/al-mokhtar-mark.svg`
+      : "";
     const accentColor = settings.accentColor || "#10b981";
     const thankYouMessage = settings.showThankYouMsg
       ? data.thankYouMessage || settings.thankYouMessage
