@@ -1,13 +1,16 @@
 // @ts-nocheck
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
+import { QRCodeSVG } from "qrcode.react";
 import { erpStore } from "@/shared/services/erpStore";
+import { inventoryService } from "@/features/inventory/services/inventoryService";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
   Building2, CalendarClock, ClipboardList, PackageCheck, Plus, Search, Wrench,
   Pencil, Trash2, CheckCircle2, Wallet, Users, MapPinned, RefreshCw, ArrowRight,
-  AlertTriangle, CircleDollarSign, ClipboardCheck, Boxes, X
+  AlertTriangle, CircleDollarSign, ClipboardCheck, Boxes, X, QrCode, Network,
+  ArrowUp, ArrowDown, Camera, Send, PackagePlus
 } from "lucide-react";
 
 export const Route = createFileRoute("/admin/maintenance")({
@@ -20,6 +23,69 @@ const INITIAL_BUILDINGS = [
   { id: "maintenance-building-2", facilityNumber: 2, name: "مبنى رقم 2", subFacilities: [] },
   { id: "maintenance-building-3", facilityNumber: 3, name: "مبنى رقم 3", subFacilities: [] },
 ];
+
+const createBranchNode = (name = "") => ({
+  id: `maintenance-branch-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+  name,
+  children: [] as any[],
+});
+
+function normalizeBranchTree(nodes: any[]): any[] {
+  if (!Array.isArray(nodes)) return [];
+  return nodes.map((node: any) => ({
+    id: String(node?.id || createBranchNode().id),
+    name: String(node?.name || ""),
+    children: normalizeBranchTree(node?.children || node?.subFacilities || []),
+  }));
+}
+
+function flattenBranchTree(nodes: any[], prefix = ""): { id: string; name: string }[] {
+  const result: { id: string; name: string }[] = [];
+  for (const node of nodes || []) {
+    const fullName = prefix ? `${prefix} > ${node.name}` : node.name;
+    result.push({ id: node.id, name: fullName });
+    result.push(...flattenBranchTree(node.children || [], fullName));
+  }
+  return result;
+}
+
+function updateBranchTree(nodes: any[], path: string[], updater: (node: any) => any): any[] {
+  if (!path.length) return nodes;
+  const [targetId, ...rest] = path;
+  const index = nodes.findIndex((node: any) => node.id === targetId);
+  if (index < 0) return nodes;
+  const next = [...nodes];
+  if (rest.length === 0) {
+    const updated = updater(next[index]);
+    if (updated === null || updated === undefined) next.splice(index, 1);
+    else next[index] = updated;
+  } else {
+    next[index] = {
+      ...next[index],
+      children: updateBranchTree(next[index].children || [], rest, updater),
+    };
+  }
+  return next;
+}
+
+function moveBranchTree(nodes: any[], path: string[], direction: "up" | "down"): any[] {
+  if (!path.length) return nodes;
+  const [targetId, ...rest] = path;
+  const next = [...nodes];
+  const index = next.findIndex((node: any) => node.id === targetId);
+  if (index < 0) return nodes;
+  if (rest.length) {
+    next[index] = {
+      ...next[index],
+      children: moveBranchTree(next[index].children || [], rest, direction),
+    };
+    return next;
+  }
+  const targetIndex = direction === "up" ? index - 1 : index + 1;
+  if (targetIndex < 0 || targetIndex >= next.length) return next;
+  [next[index], next[targetIndex]] = [next[targetIndex], next[index]];
+  return next;
+}
 
 const FREQUENCIES = [
   { value: "DAILY", label: "يومي" },
