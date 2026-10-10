@@ -1145,6 +1145,29 @@ export class ERPStore {
       if (!this.state.users.some((user: any) => String(user.username || "").toLowerCase() === activeUsername)) {
         this.state.currentUser = "";
       }
+
+      // Remove stale local login markers for a bundled/deleted account. Hosted
+      // Supabase sessions are independent and will be re-established from Auth.
+      if (typeof window !== "undefined") {
+        const storedAuthUser =
+          localStorage.getItem("restocash_auth_user") ||
+          sessionStorage.getItem("restocash_auth_user") ||
+          "";
+        const storedName = storedAuthUser.trim().toLowerCase();
+        const storedBase = storedName.split("@")[0];
+        const hasMatchingLocalAccount = this.state.users.some((user: any) => {
+          const username = String(user.username || "").trim().toLowerCase();
+          if (!username || !user.password) return false;
+          return username.includes("@") ? username === storedName : username === storedBase;
+        });
+        if (storedName && !hasMatchingLocalAccount) {
+          localStorage.removeItem("restocash_auth_user");
+          localStorage.removeItem("restocash_user_role");
+          sessionStorage.removeItem("restocash_auth_user");
+          sessionStorage.removeItem("restocash_user_role");
+        }
+      }
+
       this.state.legacy_users_purged_2026_10_10 = true;
       this.saveState();
       this.saveToIDB(this.state);
