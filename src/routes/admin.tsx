@@ -39,16 +39,7 @@ export const Route = createFileRoute("/admin")({
 
 const ROUTE_PERMISSION_KEYS: Record<string, string[]> = {
   "/admin": [
-    "super_admin_full_access", "orders", "orders_view", "pos", "pos_access",
-    "captain", "captain_access", "kitchen", "kitchen_view", "delivery",
-    "inventory", "inventory_view", "purchasing", "purchasing_view", "production",
-    "hr", "hr_view_attendance", "treasury", "treasury_view", "accounting",
-    "accounting_view", "reports", "reports_view_sales", "reports_view_financials",
-    "mall_manage_shops", "mall_garden_finance", "manage_park_shifts", "park_reports",
-    "users_roles", "system_manage_users", "system_backup_update", "maintenance_view",
-    "maintenance_manage_requests", "maintenance_manage_preventive",
-    "maintenance_manage_custody", "maintenance_post_finance",
-    "maintenance_manage_buildings", "maintenance_export_reports",
+    "super_admin_full_access", "accounting", "accounting_view", "reports", "reports_view_financials",
   ],
   "/admin/maintenance": [
     "maintenance_view", "maintenance_manage_requests", "maintenance_manage_preventive",
@@ -76,10 +67,23 @@ const routePermissionKeys = (pathname: string): string[] | null => {
   return null;
 };
 
-const hasAnyPermission = (permissions: UserPermission) =>
-  Object.values(permissions || {}).some((granted) => granted === true);
+const DASHBOARD_TAB_PERMISSION_KEYS: Record<string, string[]> = {
+  dashboard: ["accounting", "accounting_view", "reports", "reports_view_financials"],
+  chart_of_accounts: ["accounting", "accounting_view", "accounting_post_journal"],
+  audit_logs: ["audit_logs", "system_audit_logs", "users_roles"],
+};
+
+const canAccessDashboardTab = (user: SystemUser, tab: string) => {
+  const required = DASHBOARD_TAB_PERMISSION_KEYS[tab];
+  if (!required) return false;
+  const permissions = erpStore.getState().userPermissions?.[user.username] || {};
+  return permissions.super_admin_full_access === true || required.some((key) => permissions[key] === true);
+};
 
 const canAccessPath = (user: SystemUser, pathname: string) => {
+  if (pathname === "/admin" || pathname === "/admin/") {
+    return canAccessDashboardTab(user, "dashboard");
+  }
   const required = routePermissionKeys(pathname);
   if (!required) return false;
   const permissions = erpStore.getState().userPermissions?.[user.username] || {};
@@ -169,8 +173,11 @@ export function AdminLayout({ children }: { children?: ReactNode }) {
 
   if (!user) return null;
 
-  const canAccessCurrentRoute = canAccessPath(user, pathname);
   const searchParams = new URLSearchParams(location.search);
+  const canAccessCurrentRoute =
+    pathname === "/admin" || pathname === "/admin/"
+      ? canAccessDashboardTab(user, searchParams.get("tab") || "dashboard")
+      : canAccessPath(user, pathname);
   const hasRouteSearch = searchParams.has("tab");
   const isNavItemActive = (item: (typeof nav)[number]) => {
     if (item.search) {
