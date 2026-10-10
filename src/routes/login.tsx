@@ -47,7 +47,7 @@ function clearAuthenticatedUserId() {
 }
 
 function safeRedirectTarget(value: string | null): string {
-  if (!value || !value.startsWith("/admin") || value.startsWith("//")) return "/admin";
+  if (!value || value.startsWith("//") || !(value === "/admin" || value.startsWith("/admin/"))) return "/admin";
   return value;
 }
 
