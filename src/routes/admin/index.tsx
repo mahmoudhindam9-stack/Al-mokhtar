@@ -3,7 +3,7 @@ import { ORACLE_MIGRATION_ACCOUNTS as oracleAccounts } from "@/shared/data/oracl
 import { OracleAccountsViewer } from "@/components/admin/OracleAccountsViewer";
 import { createFileRoute, Link, useLocation } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useToast } from "@/hooks/use-toast";
 import * as XLSX from "xlsx";
 import { supabase } from "@/integrations/supabase/client";
@@ -115,9 +115,9 @@ function AdminDashboard() {
   // ERP Store State
   const [erpState, setErpState] = useState(erpStore.getState());
   const currentBranch = erpStore.getCurrentBranch();
-  const activeUserPermissions = erpState.userPermissions?.[erpState.currentUser] || {};
-  const canAccessDashboardSubtab = (tab: string) => {
-    if (activeUserPermissions.super_admin_full_access === true) return true;
+  const canAccessDashboardSubtab = useCallback((tab: string) => {
+    const permissions = erpState.userPermissions?.[erpState.currentUser] || {};
+    if (permissions.super_admin_full_access === true) return true;
     const requirements: Record<string, string[]> = {
       dashboard: ["accounting", "accounting_view", "reports", "reports_view_financials"],
       chart_of_accounts: ["accounting", "accounting_view", "accounting_post_journal"],
@@ -125,8 +125,8 @@ function AdminDashboard() {
       treasury: ["treasury", "treasury_view", "treasury_open_close"],
       vouchers_entry: ["accounting", "accounting_post_journal", "expense_approval", "revenue_approval", "treasury"],
     };
-    return (requirements[tab] || []).some((key) => activeUserPermissions[key] === true);
-  };
+    return (requirements[tab] || []).some((key) => permissions[key] === true);
+  }, [erpState.currentUser, erpState.userPermissions]);
   const handleDashboardTabChange = (tab: string) => {
     if (canAccessDashboardSubtab(tab)) {
       setActiveTab(tab);
@@ -144,7 +144,7 @@ function AdminDashboard() {
     const fallback = ["dashboard", "chart_of_accounts", "audit_logs", "treasury", "vouchers_entry"]
       .find((tab) => canAccessDashboardSubtab(tab));
     if (fallback) setActiveTab(fallback);
-  }, [activeTab, erpState.userPermissions, erpState.currentUser]);
+  }, [activeTab, canAccessDashboardSubtab]);
 
   // Switch branches
   const handleBranchChange = (branchId: string) => {
