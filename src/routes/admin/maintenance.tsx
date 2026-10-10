@@ -118,7 +118,7 @@ const createTaskForm = () => ({
   assignedTo: "", notes: "", requiredParts: "",
 });
 const createCustodyForm = () => ({
-  itemName: "", assetCode: "", inventoryId: "", employeeId: "", facilityId: "",
+  itemName: "", assetCode: "", inventoryId: "", employeeId: "", facilityId: "", subFacilityId: "",
   assignedAt: today(), notes: "",
 });
 const money = (amount: number) =>
@@ -549,12 +549,12 @@ function MaintenancePage() {
       setCustodyForm({
         itemName: custody.itemName || "", assetCode: custody.assetCode || "",
         inventoryId: custody.inventoryId || "", employeeId: custody.employeeId || "",
-        facilityId: custody.facilityId || "", assignedAt: custody.assignedAt || today(),
+        facilityId: custody.facilityId || "", subFacilityId: custody.subFacilityId || "", assignedAt: custody.assignedAt || today(),
         notes: custody.notes || "",
       });
     } else {
       setEditingCustodyId(null);
-      setCustodyForm({ ...createCustodyForm(), facilityId: facilities[0]?.id || "" });
+      setCustodyForm({ ...createCustodyForm(), facilityId: facilities[0]?.id || "", subFacilityId: "" });
     }
     setShowCustodyForm(true);
   };
@@ -581,6 +581,7 @@ function MaintenancePage() {
       employeeId: custodyForm.employeeId,
       employeeName: person?.name || "غير محدد",
       facilityId: custodyForm.facilityId || "",
+      subFacilityId: custodyForm.subFacilityId || "",
       assignedAt: custodyForm.assignedAt || today(),
       notes: custodyForm.notes.trim(),
       status: existing?.status || "ACTIVE",
@@ -681,7 +682,26 @@ function MaintenancePage() {
     }) : current);
   };
   const removeBranch = (path: string[], name: string) => {
-    if (!canManageBuildings || !window.confirm(`حذف التفرع «${name}» وكل التفرعات التابعة له؟`)) return;
+    if (!canManageBuildings || !editingFacility) return;
+    const findNode = (nodes: any[], ids: string[]): any => {
+      const node = (nodes || []).find((item: any) => item.id === ids[0]);
+      if (!node) return undefined;
+      return ids.length === 1 ? node : findNode(node.children || [], ids.slice(1));
+    };
+    const collectNodeIds = (node: any): string[] => [
+      node.id,
+      ...(node.children || []).flatMap((child: any) => collectNodeIds(child)),
+    ];
+    const target = findNode(editingFacility.subFacilities || [], path);
+    const targetIds = new Set(target ? collectNodeIds(target) : path);
+    const isReferenced = [...orders, ...tasks, ...custodies].some((record: any) =>
+      record.facilityId === editingFacility.id && targetIds.has(record.subFacilityId),
+    );
+    if (isReferenced) {
+      alert("لا يمكن حذف هذا الفرع لأنه مرتبط بطلب صيانة أو مهمة دورية أو عهدة.");
+      return;
+    }
+    if (!window.confirm(`حذف التفرع «${name}» وكل التفرعات التابعة له؟`)) return;
     setEditingFacility((current: any) => current ? ({
       ...current,
       subFacilities: updateBranchTree(current.subFacilities || [], path, () => null),
@@ -851,7 +871,7 @@ function MaintenancePage() {
     [task.description, locationName(task.facilityId, task.subFacilityId), personName(task.assignedTo)].join(" ").toLowerCase().includes(taskSearch.trim().toLowerCase()),
   );
   const filteredCustodies = custodies.filter((item: any) =>
-    [item.itemName, item.assetCode, item.employeeName, personName(item.employeeId), buildingName(item.facilityId)].join(" ").toLowerCase().includes(custodySearch.trim().toLowerCase()),
+    [item.itemName, item.assetCode, item.employeeName, personName(item.employeeId), locationName(item.facilityId, item.subFacilityId)].join(" ").toLowerCase().includes(custodySearch.trim().toLowerCase()),
   );
 
   if (!canView) {
@@ -1203,7 +1223,8 @@ function MaintenancePage() {
               <Field label="اسم العهدة / الجهاز"><input className={inputClass} value={custodyForm.itemName} onChange={(e) => setCustodyValue("itemName", e.target.value)} required/></Field>
               <Field label="رقم الأصل / الكود"><input className={inputClass} value={custodyForm.assetCode} onChange={(e) => setCustodyValue("assetCode", e.target.value)} /></Field>
               <Field label="الموظف المستلم"><select className={selectClass} value={custodyForm.employeeId} onChange={(e) => setCustodyValue("employeeId", e.target.value)} required><option value="">اختر الموظف أو المستخدم</option>{people.map((person: any) => <option key={person.id} value={person.id}>{person.name} — {person.role}</option>)}</select></Field>
-              <Field label="المبنى"><select className={selectClass} value={custodyForm.facilityId} onChange={(e) => setCustodyValue("facilityId", e.target.value)}><option value="">غير محدد</option>{facilities.map((item: any) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></Field>
+              <Field label="المبنى"><select className={selectClass} value={custodyForm.facilityId} onChange={(e) => { setCustodyValue("facilityId", e.target.value); setCustodyValue("subFacilityId", ""); }}><option value="">غير محدد</option>{facilities.map((item: any) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></Field>
+              <Field label="الفرع / الموقع التفصيلي"><select className={selectClass} value={custodyForm.subFacilityId || ""} onChange={(e) => setCustodyValue("subFacilityId", e.target.value)}><option value="">المبنى بالكامل</option>{branchOptionsFor(custodyForm.facilityId).map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></Field>
               <Field label="تاريخ التسليم"><input className={inputClass} type="date" value={custodyForm.assignedAt} onChange={(e) => setCustodyValue("assignedAt", e.target.value)} required/></Field>
               <Field label="ملاحظات"><textarea className={inputClass} rows={2} value={custodyForm.notes} onChange={(e) => setCustodyValue("notes", e.target.value)}/></Field>
               <div className="flex items-end gap-2"><Button type="submit"><CheckCircle2 className="ml-2" size={16}/>حفظ العهدة</Button><Button type="button" variant="outline" onClick={closeCustodyForm}>إلغاء</Button></div>
@@ -1213,7 +1234,7 @@ function MaintenancePage() {
             <thead className="bg-muted/40 text-right text-xs text-muted-foreground"><tr><th className="p-3">العهدة</th><th className="p-3">المستلم</th><th className="p-3">المبنى / التسليم</th><th className="p-3">الحالة</th><th className="p-3">الإجراءات</th></tr></thead>
             <tbody>{filteredCustodies.map((item: any) => <tr key={item.id} className="border-t border-border/70">
               <td className="p-3"><p className="font-black">#{item.custodyNumber} — {item.itemName}</p><p className="mt-1 text-xs text-muted-foreground">{item.assetCode || (item.inventoryId ? "مرتبط بالمخزون" : "بدون كود")}</p></td>
-              <td className="p-3">{item.employeeName || personName(item.employeeId)}</td><td className="p-3">{buildingName(item.facilityId)}<p className="mt-1 text-xs text-muted-foreground">{dateLabel(item.assignedAt)}</p></td>
+              <td className="p-3">{item.employeeName || personName(item.employeeId)}</td><td className="p-3">{locationName(item.facilityId, item.subFacilityId)}<p className="mt-1 text-xs text-muted-foreground">{dateLabel(item.assignedAt)}</p></td>
               <td className="p-3"><span className={`rounded-full px-2.5 py-1 text-xs font-bold ${item.status === "ACTIVE" ? "bg-blue-500/10 text-blue-700" : "bg-emerald-500/10 text-emerald-700"}`}>{statusLabel(item.status)}</span>{item.returnedAt && <p className="mt-1 text-[11px] text-muted-foreground">{dateLabel(item.returnedAt)}</p>}</td>
               <td className="p-3"><div className="flex flex-wrap gap-1.5">{canManageCustody && item.status === "ACTIVE" && <><button className={smallButton} onClick={() => openCustodyEditor(item)}><Pencil size={13}/> تعديل</button><button className={`${smallButton} text-emerald-700`} onClick={() => returnCustody(item)}>استرداد</button></>}{canManageCustody && item.status === "RETURNED" && <button className={`${smallButton} text-destructive`} onClick={() => deleteCustody(item)}><Trash2 size={13}/> حذف</button>}</div></td>
             </tr>)}{filteredCustodies.length === 0 && <tr><td colSpan={5} className="p-10 text-center text-muted-foreground">لا توجد سجلات عهد بعد.</td></tr>}</tbody>
