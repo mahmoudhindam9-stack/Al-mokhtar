@@ -262,6 +262,23 @@ function MaintenancePage() {
   const canPostFinance = isAdmin || !!permissions.maintenance_post_finance ||
     !!permissions.accounting_post_journal || !!permissions.expense_approval;
   const canExport = isAdmin || !!permissions.maintenance_export_reports || !!permissions.reports;
+  const canReadOverview = isAdmin || !!permissions.maintenance_view || canManageBuildings;
+  const canViewRequests = isAdmin || !!permissions.maintenance_view || canManageRequests;
+  const canViewPreventive = isAdmin || !!permissions.maintenance_view || canManagePreventive;
+  const canViewCustody = isAdmin || !!permissions.maintenance_view || canManageCustody;
+  const canViewStock = isAdmin || !!permissions.maintenance_view || canManageStock;
+
+  useEffect(() => {
+    const accessibleTabs: Record<string, boolean> = {
+      overview: canReadOverview || canViewStock,
+      requests: canViewRequests,
+      preventive: canViewPreventive,
+      custody: canViewCustody,
+    };
+    if (accessibleTabs[activeTab]) return;
+    const fallback = ["overview", "requests", "preventive", "custody"].find((tab) => accessibleTabs[tab]);
+    if (fallback) setActiveTab(fallback);
+  }, [activeTab, canReadOverview, canViewStock, canViewRequests, canViewPreventive, canViewCustody]);
 
   useEffect(() => {
     setFacilityDrafts(Object.fromEntries(facilities.map((facility: any) => [facility.id, facility.name])));
@@ -896,10 +913,10 @@ function MaintenancePage() {
   };
 
   const tabs = [
-    { id: "overview", label: "الرئيسية", icon: Building2 },
-    { id: "requests", label: "طلبات الصيانة", icon: ClipboardList },
-    { id: "preventive", label: "الصيانة الدورية", icon: CalendarClock },
-    { id: "custody", label: "العهد", icon: PackageCheck },
+    ...((canReadOverview || canViewStock) ? [{ id: "overview", label: "الرئيسية", icon: Building2 }] : []),
+    ...(canViewRequests ? [{ id: "requests", label: "طلبات الصيانة", icon: ClipboardList }] : []),
+    ...(canViewPreventive ? [{ id: "preventive", label: "الصيانة الدورية", icon: CalendarClock }] : []),
+    ...(canViewCustody ? [{ id: "custody", label: "العهد", icon: PackageCheck }] : []),
   ];
 
   return (
@@ -927,12 +944,13 @@ function MaintenancePage() {
 
       {activeTab === "overview" && (
         <div className="space-y-6">
-          <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+          {canReadOverview && <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
             <Metric title="طلبات قيد المعالجة" value={openOrders.length} icon={ClipboardList} tone="amber"/>
             <Metric title="مهام دورية متأخرة" value={overdueTasks.length} icon={AlertTriangle} tone="rose"/>
             <Metric title="العهد النشطة" value={activeCustodies.length} icon={PackageCheck} tone="blue"/>
             <Metric title="تكاليف الطلبات المسجلة" value={`${money(totalMaintenanceCost)} ج.م`} icon={CircleDollarSign} tone="emerald"/>
-          </div>
+          </div>}
+          {canReadOverview && (
           <Card>
             <CardHeader className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
               <div><CardTitle className="flex items-center gap-2"><MapPinned size={20} className="text-primary"/> خريطة المنشأة</CardTitle><CardDescription>خريطة جديدة بثلاثة مبانٍ فارغة كبداية؛ يمكنك تعديل الأسماء أو إضافة مبانٍ لاحقًا.</CardDescription></div>
@@ -982,6 +1000,8 @@ function MaintenancePage() {
               {facilities.length === 0 && <div className="col-span-full rounded-xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">لا توجد مبانٍ في الخريطة. أضف مبنى للبدء.</div>}
             </CardContent>
           </Card>
+          )}
+
           {editingFacility && canManageBuildings && (
             <Card>
               <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -1008,6 +1028,7 @@ function MaintenancePage() {
             </Card>
           )}
 
+          {canViewStock && (
           <Card>
             <CardHeader className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
               <div>
@@ -1066,6 +1087,9 @@ function MaintenancePage() {
             </CardContent>
           </Card>
 
+
+          )}
+          {canReadOverview && (
           <Card>
             <CardHeader><CardTitle>آخر طلبات الصيانة</CardTitle><CardDescription>آخر خمسة طلبات مسجلة في النظام.</CardDescription></CardHeader>
             <CardContent>
@@ -1079,6 +1103,8 @@ function MaintenancePage() {
               </div>
             </CardContent>
           </Card>
+
+          )}
         </div>
       )}
 
