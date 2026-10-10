@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState, type ChangeEvent, type FormEvent } from "react";
+import { useEffect, useState, type ChangeEvent, type FormEvent } from "react";
 import { AlertTriangle, Camera, CheckCircle2, MapPin, Send, User, Briefcase } from "lucide-react";
 import { erpStore } from "@/shared/services/erpStore";
 
@@ -9,13 +9,22 @@ export const Route = createFileRoute("/maintenance-request")({
 });
 
 function PublicMaintenanceRequestPage() {
-  const params = useMemo(() => new URLSearchParams(typeof window !== "undefined" ? window.location.search : ""), []);
-  const facilityId = params.get("facilityId") || "";
-  const subFacilityId = params.get("subFacilityId") || "";
-  const initialLocation = params.get("location") || "";
+  const [qrLocation, setQrLocation] = useState({ facilityId: "", subFacilityId: "", initialLocation: "" });
+  const { facilityId, subFacilityId, initialLocation } = qrLocation;
   const [name, setName] = useState("");
   const [jobTitle, setJobTitle] = useState("");
-  const [location, setLocation] = useState(initialLocation);
+  const [location, setLocation] = useState("");
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const nextLocation = {
+      facilityId: params.get("facilityId") || "",
+      subFacilityId: params.get("subFacilityId") || "",
+      initialLocation: params.get("location") || "",
+    };
+    setQrLocation(nextLocation);
+    setLocation(nextLocation.initialLocation);
+  }, []);
   const [description, setDescription] = useState("");
   const [image, setImage] = useState("");
   const [error, setError] = useState("");
