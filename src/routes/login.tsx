@@ -109,7 +109,7 @@ function LoginPage() {
       // The local default account must never grant access to the hosted ERP.
       if (isHostedDeployment()) {
         localStorage.setItem("remember_me", rememberMe ? "true" : "false");
-        const authenticated = await signInHostedAdminAccount(normalizedUsername, password);
+        const authenticated = await signInHostedAdminAccount(normalizedUsername, normalizeDigits(password));
         if (!authenticated) {
           setError("تعذّر التحقق من بيانات الدخول في Supabase. تأكّد من البريد وكلمة المرور، ومن تطبيق إعدادات قاعدة البيانات الخاصة بالمختار.");
           return;
