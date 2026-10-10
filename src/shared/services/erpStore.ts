@@ -1281,7 +1281,14 @@ export class ERPStore {
       return this.getDefaultState();
     // One-time cleanup of old demo accounts; financial and operational data is preserved.
     const resetDemoUsers = localStorage.getItem("almokhtar_auth_migration_v1") !== "done";
-    if (resetDemoUsers) localStorage.setItem("almokhtar_auth_migration_v1", "done");
+    if (resetDemoUsers) {
+      localStorage.setItem("almokhtar_auth_migration_v1", "done");
+      localStorage.removeItem("restocash_auth_user");
+      localStorage.removeItem("restocash_user_role");
+      localStorage.removeItem("restocash_github_pat_token");
+      sessionStorage.removeItem("restocash_auth_user");
+      sessionStorage.removeItem("restocash_user_role");
+    }
     const raw = localStorage.getItem("erp_store_state");
     if (raw)
       try {

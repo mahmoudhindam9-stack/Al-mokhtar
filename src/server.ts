@@ -53,7 +53,23 @@ export default {
       const url = new URL(request.url);
 
       if (url.pathname === "/api/chat" && request.method === "POST") {
-        const { messages, model = "gemini-3.5-flash" } = await request.json();
+        if (!process.env.GEMINI_API_KEY) {
+          return new Response("AI chat is not configured on this deployment.", {
+            status: 503,
+            headers: { "Content-Type": "text/plain; charset=utf-8" },
+          });
+        }
+        const payload = await request.json();
+        const messages = payload?.messages;
+        const model = typeof payload?.model === "string" ? payload.model : "gemini-3.5-flash";
+        if (!Array.isArray(messages) || messages.length === 0 || messages.length > 40 ||
+            !messages.every((m: any) => m && typeof m.text === "string" &&
+              ["user", "model"].includes(m.role))) {
+          return new Response("Invalid chat request.", {
+            status: 400,
+            headers: { "Content-Type": "text/plain; charset=utf-8" },
+          });
+        }
         const ai = new GoogleGenAI({
           apiKey: process.env.GEMINI_API_KEY,
           httpOptions: {

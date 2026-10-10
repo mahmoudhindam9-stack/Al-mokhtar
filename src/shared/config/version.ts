@@ -1,5 +1,5 @@
 /**
- * Restocash System Version & Configuration
+ * Al-Mokhtar System Version & Configuration
  * Provides single source of truth for app version and GitHub repo metadata
  */
 
