@@ -22,7 +22,7 @@ import {
   Settings,
   Wrench,
 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { erpStore, type SystemUser, type UserPermission } from "@/shared/services/erpStore";
 import { Button } from "@/components/ui/button";
 import { RestocashLogo } from "@/components/RestocashLogo";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
@@ -36,6 +36,55 @@ export const Route = createFileRoute("/admin")({
   head: () => ({ meta: [{ title: "لوحة الإدارة" }] }),
   component: () => <AdminLayout />,
 });
+
+const ROUTE_PERMISSION_KEYS: Record<string, string[]> = {
+  "/admin": [
+    "super_admin_full_access", "orders", "orders_view", "pos", "pos_access",
+    "captain", "captain_access", "kitchen", "kitchen_view", "delivery",
+    "inventory", "inventory_view", "purchasing", "purchasing_view", "production",
+    "hr", "hr_view_attendance", "treasury", "treasury_view", "accounting",
+    "accounting_view", "reports", "reports_view_sales", "reports_view_financials",
+    "mall_manage_shops", "mall_garden_finance", "manage_park_shifts", "park_reports",
+    "users_roles", "system_manage_users", "system_backup_update", "maintenance_view",
+    "maintenance_manage_requests", "maintenance_manage_preventive",
+    "maintenance_manage_custody", "maintenance_post_finance",
+    "maintenance_manage_buildings", "maintenance_export_reports",
+  ],
+  "/admin/maintenance": [
+    "maintenance_view", "maintenance_manage_requests", "maintenance_manage_preventive",
+    "maintenance_manage_custody", "maintenance_post_finance", "maintenance_manage_buildings",
+    "maintenance_export_reports",
+  ],
+  "/admin/mall": ["mall_manage_shops", "mall_garden_finance", "manage_park_shifts", "delete_park_shifts", "park_reports"],
+  "/admin/financial": ["treasury", "treasury_view", "treasury_open_close", "accounting", "accounting_view", "expense_approval", "revenue_approval"],
+  "/admin/inventory": ["inventory", "inventory_view", "inventory_adjust_transfer", "inventory_waste_dispose"],
+  "/admin/receipts": ["treasury", "treasury_view", "accounting", "accounting_view", "expense_approval", "revenue_approval"],
+  "/admin/hr": ["hr", "hr_view_attendance", "hr_manage_payroll_loans"],
+  "/admin/reports": ["reports", "reports_view_sales", "reports_view_financials", "maintenance_export_reports"],
+  "/admin/users": ["system_manage_users", "users_roles"],
+  "/admin/system-update": ["system_backup_update", "developer_options"],
+  "/admin/accounts": ["accounting", "accounting_view", "accounting_post_journal"],
+  "/admin/ledger": ["accounting", "accounting_view", "accounting_post_journal", "journal_approval"],
+};
+
+const routePermissionKeys = (pathname: string): string[] | null => {
+  const matched = Object.keys(ROUTE_PERMISSION_KEYS)
+    .filter((path) => path !== "/admin" && (pathname === path || pathname.startsWith(path + "/")))
+    .sort((a, b) => b.length - a.length)[0];
+  if (matched) return ROUTE_PERMISSION_KEYS[matched];
+  if (pathname === "/admin" || pathname === "/admin/") return ROUTE_PERMISSION_KEYS["/admin"];
+  return null;
+};
+
+const hasAnyPermission = (permissions: UserPermission) =>
+  Object.values(permissions || {}).some((granted) => granted === true);
+
+const canAccessPath = (user: SystemUser, pathname: string) => {
+  const required = routePermissionKeys(pathname);
+  if (!required) return false;
+  const permissions = erpStore.getState().userPermissions?.[user.username] || {};
+  return permissions.super_admin_full_access === true || required.some((key) => permissions[key] === true);
+};
 
 const nav = [
   { to: "/admin", label: "الرئيسية", icon: LayoutDashboard, exact: true },
@@ -51,7 +100,6 @@ const nav = [
     to: "/admin/system-update",
     label: "خيارات المطور",
     icon: Settings,
-    permissionKey: "developer_options",
   },
 ];
 
@@ -59,82 +107,51 @@ export function AdminLayout({ children }: { children?: ReactNode }) {
   const location = useLocation();
   const navigate = useNavigate();
   const pathname = location.pathname;
-  const [user, setUser] = useState<{ email?: string } | null>(null);
+  const [user, setUser] = useState<SystemUser | null>(null);
   const [authChecking, setAuthChecking] = useState(true);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   useEffect(() => {
-    let isMounted = true;
-
-    async function checkAuth() {
-      const localUser =
-        localStorage.getItem("restocash_auth_user") ||
-        sessionStorage.getItem("restocash_auth_user");
-
-      try {
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
-
-        if (!isMounted) return;
-
-        if (session?.user?.email) {
-          setUser({ email: session.user.email });
-        } else if (localUser) {
-          setUser({ email: localUser });
-        } else {
-          navigate({ to: "/login" });
-          return;
-        }
-      } catch (error) {
-        console.error("Restocash auth check failed:", error);
-        if (!isMounted) return;
-        if (localUser) {
-          setUser({ email: localUser });
-        } else {
-          navigate({ to: "/login" });
-          return;
-        }
-      } finally {
-        if (isMounted) {
-          setAuthChecking(false);
-        }
+    const clearOldAuth = () => {
+      for (const key of ["restocash_auth_user", "restocash_user_role"]) {
+        localStorage.removeItem(key);
+        sessionStorage.removeItem(key);
       }
-    }
-
-    checkAuth();
-
-    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (!isMounted) return;
-      const localUser =
-        localStorage.getItem("restocash_auth_user") ||
-        sessionStorage.getItem("restocash_auth_user");
-
-      if (session?.user?.email) {
-        setUser({ email: session.user.email });
-      } else if (localUser) {
-        setUser({ email: localUser });
-      } else if (event === "SIGNED_OUT" || !session) {
-        navigate({ to: "/login" });
-      }
-    });
-
-    return () => {
-      isMounted = false;
-      authListener?.subscription?.unsubscribe();
     };
+    const validateUser = () => {
+      clearOldAuth();
+      const userId =
+        localStorage.getItem("restocash_authenticated_user_id") ||
+        sessionStorage.getItem("restocash_authenticated_user_id");
+      const activeUser = userId ? erpStore.getUsers().find((item) => item.id === userId) : undefined;
+      if (!activeUser) {
+        localStorage.removeItem("restocash_authenticated_user_id");
+        sessionStorage.removeItem("restocash_authenticated_user_id");
+        setUser(null);
+        setAuthChecking(false);
+        navigate({ to: "/login" });
+        return;
+      }
+      if (erpStore.getState().currentUser !== activeUser.username) {
+        erpStore.setCurrentUser(activeUser.username);
+      }
+      setUser(activeUser);
+      setAuthChecking(false);
+    };
+
+    validateUser();
+    const unsubscribe = erpStore.subscribe(validateUser);
+    return unsubscribe;
   }, [navigate]);
 
-  const handleSignOut = async () => {
+  const handleSignOut = () => {
+    localStorage.removeItem("restocash_authenticated_user_id");
+    sessionStorage.removeItem("restocash_authenticated_user_id");
     localStorage.removeItem("restocash_auth_user");
-    localStorage.removeItem("restocash_user_role");
     sessionStorage.removeItem("restocash_auth_user");
+    localStorage.removeItem("restocash_user_role");
     sessionStorage.removeItem("restocash_user_role");
-    try {
-      await supabase.auth.signOut();
-    } catch {
-      // ignore
-    }
+    erpStore.setCurrentUser("");
     setUser(null);
     navigate({ to: "/login" });
   };
@@ -144,8 +161,7 @@ export function AdminLayout({ children }: { children?: ReactNode }) {
       <div className="min-h-screen flex items-center justify-center bg-background p-6">
         <div className="w-full max-w-sm rounded-2xl border border-border bg-card p-6 text-center shadow-sm">
           <RestocashLogo size={32} />
-          <p className="mt-4 text-sm font-bold text-foreground">جاري التحقق من جلسة الدخول…</p>
-          <p className="mt-2 text-xs text-muted-foreground">يرجى الانتظار لحظات.</p>
+          <p className="mt-4 text-sm font-bold text-foreground">جاري التحقق من المستخدم والصلاحيات…</p>
         </div>
       </div>
     );
@@ -153,6 +169,7 @@ export function AdminLayout({ children }: { children?: ReactNode }) {
 
   if (!user) return null;
 
+  const canAccessCurrentRoute = canAccessPath(user, pathname);
   const searchParams = new URLSearchParams(location.search);
   const hasRouteSearch = searchParams.has("tab");
   const isNavItemActive = (item: (typeof nav)[number]) => {
@@ -165,7 +182,8 @@ export function AdminLayout({ children }: { children?: ReactNode }) {
     }
     return pathname.startsWith(item.to);
   };
-  const activeNavItem = nav.find(isNavItemActive);
+  const activeNavItem = nav.find((item) => canAccessPath(user, item.to) && isNavItemActive(item));
+  const visibleNav = nav.filter((item) => canAccessPath(user, item.to));
 
   const renderSidebarNav = (onItemClick?: () => void) => (
     <div className="flex flex-col h-full bg-card text-card-foreground">
@@ -179,7 +197,7 @@ export function AdminLayout({ children }: { children?: ReactNode }) {
         <div className="px-3 py-1.5 text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
           {location.pathname.startsWith("/admin") ? "لوحة التحكم الرئيسية" : "الإدارة"}
         </div>
-        {nav.map((item) => {
+        {visibleNav.map((item) => {
           const active = isNavItemActive(item);
           return (
             <Link
@@ -203,7 +221,7 @@ export function AdminLayout({ children }: { children?: ReactNode }) {
         })}
       </nav>
       <div className="p-3 border-t border-border space-y-2 shrink-0">
-        <p className="px-3 text-xs text-muted-foreground truncate">{user?.email}</p>
+        <p className="px-3 text-xs text-muted-foreground truncate">{user.full_name || user.username}</p>
         <Button
           variant="ghost"
           className="w-full justify-start gap-2 text-muted-foreground"
@@ -288,7 +306,13 @@ export function AdminLayout({ children }: { children?: ReactNode }) {
             <LanguageSwitcher />
           </div>
         </header>
-        <div className="p-4 sm:p-6 flex-1">{children || <Outlet />}</div>
+        <div className="p-4 sm:p-6 flex-1">{canAccessCurrentRoute ? (children || <Outlet />) : (
+          <div className="mx-auto mt-8 max-w-xl rounded-2xl border border-border bg-card p-6 text-center">
+            <h2 className="text-lg font-black text-foreground">لا توجد صلاحية لهذه الصفحة</h2>
+            <p className="mt-2 text-sm text-muted-foreground">هذا الحساب غير مخوّل لفتح القسم المطلوب. يحدد مدير النظام الصلاحيات من صفحة المستخدمين.</p>
+            <Button className="mt-4" onClick={() => navigate({ to: "/admin" })}>العودة للوحة المسموح بها</Button>
+          </div>
+        )}</div>
       </main>
     </div>
   );
