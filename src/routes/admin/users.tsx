@@ -815,7 +815,7 @@ function UsersPage() {
         console.warn("Cloud sign-up unavailable; creating a local Al-Mokhtar user.", error);
       }
 
-      const defaultPermissions = erpState.userPermissions[form.role] || {};
+      const defaultPermissions = defaultPermissionsForRole(form.role);
       const localUser: SystemUser = {
         id: `u-${Date.now()}`,
         full_name: form.full_name,
