@@ -7,7 +7,7 @@ import {
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { translator } from "../shared/services/translationService";
@@ -111,13 +111,33 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     ],
     links: [
       { rel: "stylesheet", href: appCss },
-      { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
+      { rel: "icon", href: "/al-mokhtar-mark.svg", type: "image/svg+xml" },
+      { rel: "apple-touch-icon", href: "/al-mokhtar-mark.svg" },
+      { name: "theme-color", content: "#07182a" },
     ],
   }),
   component: RootComponent,
   notFoundComponent: NotFoundComponent,
   errorComponent: ErrorComponent,
 });
+
+function BrandSplash() {
+  const [visible, setVisible] = useState(true);
+  useEffect(() => {
+    const timer = window.setTimeout(() => setVisible(false), 1900);
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  if (!visible) return null;
+  return (
+    <div className="al-mokhtar-splash" role="dialog" aria-label="مرحبًا بك في المختار لإدارة المشروعات">
+      <div className="al-mokhtar-splash-glow" />
+      <img src="/al-mokhtar-logo.svg" alt="المختار لإدارة المشروعات" />
+      <p>إدارة ذكية لمشروعاتك المتكاملة</p>
+      <button type="button" onClick={() => setVisible(false)}>الدخول إلى البرنامج</button>
+    </div>
+  );
+}
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
@@ -149,6 +169,7 @@ function RootComponent() {
       </head>
       <body>
         <QueryClientProvider client={queryClient}>
+          <BrandSplash />
           <Outlet />
           <Toaster />
           <ThemeToggle className="fixed bottom-4 left-4 z-50 rounded-full h-14 w-14 shadow-lg bg-background" />
