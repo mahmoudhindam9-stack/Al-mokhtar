@@ -282,3 +282,112 @@
 .print-brand-header strong{font-size:20px;font-weight:900}
 .print-brand-header span{font-size:11px;color:#9a742c}
 @media print{.print-brand-header{display:flex!important;break-inside:avoid;print-color-adjust:exact;-webkit-print-color-adjust:exact}}
+
+
+/* Al-Mokhtar unified corporate design system: midnight navy, warm ivory and metallic gold. */
+:root {
+  --radius: 0.9rem;
+  --background: oklch(0.985 0.008 82);
+  --foreground: oklch(0.22 0.035 250);
+  --card: oklch(1 0.002 85);
+  --card-foreground: oklch(0.22 0.035 250);
+  --popover: oklch(0.998 0.003 80);
+  --popover-foreground: oklch(0.22 0.035 250);
+  --primary: oklch(0.28 0.065 248);
+  --primary-foreground: oklch(0.98 0.01 82);
+  --primary-glow: oklch(0.39 0.085 245);
+  --secondary: oklch(0.95 0.018 78);
+  --secondary-foreground: oklch(0.25 0.045 250);
+  --muted: oklch(0.96 0.012 80);
+  --muted-foreground: oklch(0.49 0.028 250);
+  --accent: oklch(0.79 0.13 79);
+  --accent-foreground: oklch(0.22 0.04 248);
+  --border: oklch(0.89 0.022 78);
+  --input: oklch(0.88 0.02 78);
+  --ring: oklch(0.72 0.12 79);
+  --gradient-primary: linear-gradient(135deg, oklch(0.25 0.07 248), oklch(0.36 0.085 244));
+  --gradient-accent: linear-gradient(135deg, oklch(0.88 0.12 82), oklch(0.72 0.13 70));
+  --shadow-card: 0 2px 5px oklch(0.23 0.045 248 / 0.06), 0 12px 32px oklch(0.23 0.045 248 / 0.06);
+  --shadow-elegant: 0 16px 38px -14px oklch(0.23 0.065 248 / 0.26);
+  --sidebar: oklch(0.2 0.05 248);
+  --sidebar-foreground: oklch(0.96 0.014 82);
+  --sidebar-primary: oklch(0.8 0.13 80);
+  --sidebar-primary-foreground: oklch(0.19 0.04 248);
+  --sidebar-accent: oklch(0.29 0.055 248);
+  --sidebar-accent-foreground: oklch(0.98 0.01 82);
+  --sidebar-border: oklch(0.36 0.04 248);
+  --sidebar-ring: oklch(0.78 0.12 80);
+}
+
+.dark {
+  --background: oklch(0.145 0.035 248);
+  --foreground: oklch(0.96 0.012 82);
+  --card: oklch(0.205 0.035 248);
+  --card-foreground: oklch(0.96 0.012 82);
+  --popover: oklch(0.21 0.035 248);
+  --popover-foreground: oklch(0.96 0.012 82);
+  --primary: oklch(0.8 0.13 80);
+  --primary-foreground: oklch(0.18 0.04 248);
+  --primary-glow: oklch(0.86 0.12 82);
+  --secondary: oklch(0.27 0.042 248);
+  --secondary-foreground: oklch(0.96 0.012 82);
+  --muted: oklch(0.25 0.035 248);
+  --muted-foreground: oklch(0.74 0.022 82);
+  --accent: oklch(0.32 0.045 248);
+  --accent-foreground: oklch(0.96 0.012 82);
+  --destructive: oklch(0.64 0.19 25);
+  --destructive-foreground: oklch(0.98 0.012 82);
+  --border: oklch(0.34 0.035 248);
+  --input: oklch(0.32 0.035 248);
+  --ring: oklch(0.76 0.12 80);
+  --gradient-primary: linear-gradient(135deg, oklch(0.78 0.13 80), oklch(0.68 0.13 70));
+  --gradient-accent: linear-gradient(135deg, oklch(0.78 0.13 80), oklch(0.62 0.10 68));
+  --shadow-card: 0 2px 8px oklch(0 0 0 / 0.18), 0 14px 34px oklch(0 0 0 / 0.14);
+  --shadow-elegant: 0 18px 42px -14px oklch(0 0 0 / 0.52);
+  --sidebar: oklch(0.13 0.03 248);
+  --sidebar-foreground: oklch(0.96 0.012 82);
+  --sidebar-primary: oklch(0.8 0.13 80);
+  --sidebar-primary-foreground: oklch(0.18 0.04 248);
+  --sidebar-accent: oklch(0.25 0.04 248);
+  --sidebar-accent-foreground: oklch(0.96 0.012 82);
+  --sidebar-border: oklch(0.3 0.035 248);
+  --sidebar-ring: oklch(0.76 0.12 80);
+}
+
+body {
+  background-image: radial-gradient(ellipse at 88% 0%, color-mix(in oklab, var(--accent) 9%, transparent), transparent 38rem);
+  background-attachment: fixed;
+}
+
+.dark body {
+  background-image: radial-gradient(ellipse at 88% 0%, color-mix(in oklab, var(--accent) 7%, transparent), transparent 38rem);
+}
+
+.bg-card.border,
+[class*="rounded-2xl"].border,
+[class*="rounded-xl"].border {
+  border-color: color-mix(in oklab, var(--color-border) 88%, var(--accent) 12%);
+}
+
+.bg-card.border {
+  box-shadow: var(--shadow-card);
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline-color: var(--color-ring);
+  outline-offset: 2px;
+}
+
+/* Keep the corporate palette from reducing dark-mode text contrast. */
+.dark .text-primary,
+.dark .text-foreground {
+  color: var(--color-foreground);
+}
+.dark button.bg-primary,
+.dark [role="tab"][data-state="active"] {
+  color: var(--primary-foreground);
+}
