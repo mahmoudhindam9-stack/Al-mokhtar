@@ -8,9 +8,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import {
   Building2, CalendarClock, ClipboardList, PackageCheck, Plus, Search, Wrench,
-  Pencil, Trash2, CheckCircle2, Wallet, Users, MapPinned, RefreshCw, ArrowRight,
+  Pencil, Trash2, CheckCircle2, Wallet, MapPinned,
   AlertTriangle, CircleDollarSign, ClipboardCheck, Boxes, X, QrCode, Network,
-  ArrowUp, ArrowDown, Camera, Send, PackagePlus
+  ArrowUp, ArrowDown, PackagePlus
 } from "lucide-react";
 
 export const Route = createFileRoute("/admin/maintenance")({
