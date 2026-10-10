@@ -191,7 +191,7 @@ RETURNS boolean
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
-AS $
+AS $$
 DECLARE
   deleted_count integer;
 BEGIN
@@ -213,7 +213,7 @@ BEGIN
 
   RETURN true;
 END;
-$;
+$$;
 
 REVOKE ALL ON FUNCTION public.delete_managed_user(uuid) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.delete_managed_user(uuid) TO authenticated;
