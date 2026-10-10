@@ -155,7 +155,10 @@ AS $$
         OR p.permissions ->> 'super_admin_full_access' = 'true'
       )
   );
-$$;
+$;
+
+REVOKE ALL ON FUNCTION public.current_user_can_manage_profiles() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.current_user_can_manage_profiles() TO authenticated;
 
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "TEMP_DEV_ALL_profiles" ON public.profiles;
