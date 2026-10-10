@@ -1322,6 +1322,25 @@ export class ERPStore {
                 this.saveToIDB(idbState);
               }
 
+              // Purge legacy bundled accounts from IndexedDB even when its business-state
+              // timestamp is not newer than localStorage. Preserve all other ERP records.
+              const originalIdbUsers = Array.isArray(idbState.users) ? idbState.users : [];
+              const cleanedIdbUsers = ensureLocalLoginUsers(originalIdbUsers);
+              const idbCurrentName = String(idbState.currentUser || "").trim().toLowerCase();
+              const cleanedIdbCurrentUser = cleanedIdbUsers.some(
+                (user: any) => String(user.username || "").trim().toLowerCase() === idbCurrentName,
+              ) ? idbState.currentUser : "";
+              const idbUserStateChanged =
+                cleanedIdbUsers.length !== originalIdbUsers.length ||
+                cleanedIdbCurrentUser !== (idbState.currentUser || "") ||
+                idbState.legacy_users_purged_2026_10_10 !== true;
+              if (idbUserStateChanged) {
+                idbState.users = cleanedIdbUsers;
+                idbState.currentUser = cleanedIdbCurrentUser;
+                idbState.legacy_users_purged_2026_10_10 = true;
+                this.saveToIDB(idbState);
+              }
+
               const idbEntriesCount = idbState.journalEntries?.length || 0;
               const currentEntriesCount = this.state.journalEntries?.length || 0;
               const idbUpdated = idbState._updatedAt || 0;
