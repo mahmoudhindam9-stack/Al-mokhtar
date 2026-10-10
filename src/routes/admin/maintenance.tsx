@@ -284,10 +284,48 @@ function MaintenancePage() {
 
   const buildingName = (id?: string) => facilities.find((item: any) => item.id === id)?.name || "غير محدد";
   const personName = (id?: string) => people.find((item: any) => item.id === id)?.name || id || "غير معيّن";
+  const branchOptionsFor = (facilityId?: string) => {
+    const facility = facilities.find((item: any) => item.id === facilityId);
+    return flattenBranchTree(facility?.subFacilities || []);
+  };
+  const locationName = (facilityId?: string, subFacilityId?: string) => {
+    const rootName = buildingName(facilityId);
+    if (!subFacilityId) return rootName;
+    const branch = branchOptionsFor(facilityId).find((item) => item.id === subFacilityId);
+    return branch ? `${rootName} > ${branch.name}` : rootName;
+  };
   const recordAction = (patch: Record<string, any>, action: string, details: string, type = "UPDATE") => {
     erpStore.state = { ...erpStore.getState(), ...patch };
     erpStore.saveState();
     erpStore.logAction("ADMIN", action, details, type);
+  };
+
+  const refreshMaintenanceWarehouse = async () => {
+    const warehouse = await inventoryService.ensureMaintenanceWarehouse();
+    const [items, stock] = await Promise.all([
+      inventoryService.getInventory(),
+      inventoryService.getWarehouseInventory(warehouse.id),
+    ]);
+    setMaintenanceWarehouse(warehouse);
+    setMaintenanceInventoryItems(items || []);
+    setMaintenanceWarehouseStock(stock || []);
+    setWarehouseLoadError("");
+    return warehouse;
+  };
+
+  const openQrForLocation = (facility: any, branch?: any) => {
+    if (typeof window === "undefined") return;
+    let fullLocation = facility.name;
+    if (branch) {
+      const branchPath = flattenBranchTree(facility.subFacilities || []).find((item) => item.id === branch.id);
+      fullLocation = branchPath ? `${facility.name} > ${branchPath.name}` : `${facility.name} > ${branch.name}`;
+    }
+    const url = new URL("/maintenance-request", window.location.origin);
+    url.searchParams.set("public_request", "true");
+    url.searchParams.set("facilityId", facility.id);
+    if (branch?.id) url.searchParams.set("subFacilityId", branch.id);
+    url.searchParams.set("location", fullLocation);
+    setQrModalData({ name: fullLocation, url: url.toString() });
   };
 
   const todayDate = today();
