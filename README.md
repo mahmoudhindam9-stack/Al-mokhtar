@@ -59,6 +59,19 @@ A complete **restaurant management ERP** built on [TanStack Start](https://tanst
 | `npm run lint`  | ESLint                                |
 | `npm run test`  | Vitest                                |
 
+## Offline Windows package
+
+The Windows launcher serves the built client on `http://127.0.0.1:3000` and keeps the desktop data in the same browser profile's local storage/IndexedDB. After a release package has been prepared, the bundled Node runtime lets the app start without installing Node.js or downloading npm packages on the target PC.
+
+- Extract the complete release ZIP to a normal folder; do not move or delete the folder while using the desktop shortcut.
+- Run `setup.bat` once, then launch from the desktop shortcut.
+- Core locally stored ERP data remains available without internet.
+- Cloud snapshots sync only while signed in to Supabase. The snapshot table is scoped to the signed-in user, and local user passwords are not uploaded.
+- If local and cloud versions both changed since the previous sync, automatic overwrite is stopped and the UI offers a choice of which snapshot to keep.
+- Server-only operations (including AI chat and remote GitHub release management) are not provided by the static offline launcher unless a remote backend is available.
+
+To build the package manually, run `npm ci`, `npm run typecheck`, and `npm run build`, then serve the resulting `dist` folder with `npm run serve:local`. The GitHub Actions workflow `.github/workflows/offline-package.yml` produces a Windows ZIP containing the build and portable Node runtime when run manually or on a version tag.
+
 ## Notes for contributors
 
 - Route files under `src/routes/` (e.g. `admin/ledger.tsx`, `inventory.tsx`, `pos.tsx`) are large and monolithic; prefer extracting to components/hooks.
