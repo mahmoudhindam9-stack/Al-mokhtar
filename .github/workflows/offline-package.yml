@@ -1,0 +1,79 @@
+name: Build Al Mokhtar Offline Package
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build-offline-package:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install dependencies and verify source
+        shell: pwsh
+        run: |
+          npm ci
+          npm run typecheck
+
+      - name: Build production web assets
+        shell: pwsh
+        run: |
+          npm run build
+          if (-not (Test-Path "dist/index.html")) {
+            throw "Build completed without dist/index.html; the offline package cannot be created."
+          }
+
+      - name: Assemble offline folder
+        shell: pwsh
+        run: |
+          $stage = Join-Path $env:GITHUB_WORKSPACE "offline-stage"
+          New-Item -ItemType Directory -Force -Path $stage | Out-Null
+          New-Item -ItemType Directory -Force -Path (Join-Path $stage "runtime") | Out-Null
+          New-Item -ItemType Directory -Force -Path (Join-Path $stage "scripts") | Out-Null
+
+          Copy-Item "dist" (Join-Path $stage "dist") -Recurse -Force
+          Copy-Item "scripts/serve-static.cjs" (Join-Path $stage "scripts/serve-static.cjs") -Force
+          Copy-Item "start-app.bat" (Join-Path $stage "start-app.bat") -Force
+          Copy-Item "setup.bat" (Join-Path $stage "setup.bat") -Force
+          Copy-Item "setup.ps1" (Join-Path $stage "setup.ps1") -Force
+          Copy-Item "OFFLINE-README.txt" (Join-Path $stage "README-FIRST.txt") -Force
+          $nodeExecutable = (Get-Command node).Source
+          Copy-Item $nodeExecutable (Join-Path $stage "runtime/node.exe") -Force
+
+          if (-not (Test-Path (Join-Path $stage "dist/index.html"))) {
+            throw "The packaged dist/index.html file is missing."
+          }
+          if (-not (Test-Path (Join-Path $stage "runtime/node.exe"))) {
+            throw "The portable Node.js runtime was not included."
+          }
+
+          Compress-Archive -Path (Join-Path $stage "*") -DestinationPath (Join-Path $env:GITHUB_WORKSPACE "Al-Mokhtar-Offline.zip") -Force
+
+      - name: Upload offline package artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Al-Mokhtar-Offline
+          path: Al-Mokhtar-Offline.zip
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Attach package to tagged release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: Al-Mokhtar-Offline.zip
+          generate_release_notes: true
