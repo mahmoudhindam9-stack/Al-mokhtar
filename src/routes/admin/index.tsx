@@ -115,6 +115,36 @@ function AdminDashboard() {
   // ERP Store State
   const [erpState, setErpState] = useState(erpStore.getState());
   const currentBranch = erpStore.getCurrentBranch();
+  const activeUserPermissions = erpState.userPermissions?.[erpState.currentUser] || {};
+  const canAccessDashboardSubtab = (tab: string) => {
+    if (activeUserPermissions.super_admin_full_access === true) return true;
+    const requirements: Record<string, string[]> = {
+      dashboard: ["accounting", "accounting_view", "reports", "reports_view_financials"],
+      chart_of_accounts: ["accounting", "accounting_view", "accounting_post_journal"],
+      audit_logs: ["audit_logs", "system_audit_logs", "users_roles"],
+      treasury: ["treasury", "treasury_view", "treasury_open_close"],
+      vouchers_entry: ["accounting", "accounting_post_journal", "expense_approval", "revenue_approval", "treasury"],
+    };
+    return (requirements[tab] || []).some((key) => activeUserPermissions[key] === true);
+  };
+  const handleDashboardTabChange = (tab: string) => {
+    if (canAccessDashboardSubtab(tab)) {
+      setActiveTab(tab);
+      return;
+    }
+    toast({
+      title: "لا توجد صلاحية",
+      description: "هذا الحساب غير مخوّل لفتح هذا الجزء من لوحة الإدارة.",
+      variant: "destructive",
+    });
+  };
+
+  useEffect(() => {
+    if (canAccessDashboardSubtab(activeTab)) return;
+    const fallback = ["dashboard", "chart_of_accounts", "audit_logs", "treasury", "vouchers_entry"]
+      .find((tab) => canAccessDashboardSubtab(tab));
+    if (fallback) setActiveTab(fallback);
+  }, [activeTab, erpState.userPermissions, erpState.currentUser]);
 
   // Switch branches
   const handleBranchChange = (branchId: string) => {
@@ -683,7 +713,7 @@ function AdminDashboard() {
       const newIsOpen = !tr.is_open;
       erpStore.setTreasuryOpenStatus(tr.id, newIsOpen);
       setErpState(erpStore.getState());
-      setActiveTab("treasury");
+      handleDashboardTabChange("treasury");
       toast({
         title: newIsOpen
           ? "✅ تم فتح الخزينة وتفعيل المقبوضات بنجاح"
@@ -770,23 +800,23 @@ function AdminDashboard() {
         </div>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+      <Tabs value={activeTab} onValueChange={handleDashboardTabChange} className="w-full">
         <TabsList className="bg-muted p-1 rounded-xl flex flex-wrap gap-1 h-auto">
-          <TabsTrigger value="dashboard" className="rounded-lg font-bold py-2 px-4">
+          {canAccessDashboardSubtab("dashboard") && <TabsTrigger value="dashboard" className="rounded-lg font-bold py-2 px-4">
             <Grid3X3 size={16} className="ml-1.5 inline" />
             نظرة عامة والذكاء المالي
-          </TabsTrigger>
-          <TabsTrigger value="chart_of_accounts" className="rounded-lg font-bold py-2 px-4">
+          </TabsTrigger>}
+          {canAccessDashboardSubtab("chart_of_accounts") && <TabsTrigger value="chart_of_accounts" className="rounded-lg font-bold py-2 px-4">
             <FileBarChart size={16} className="ml-1.5 inline" />
             شجرة ودليل الحسابات
-          </TabsTrigger>
-          <TabsTrigger
+          </TabsTrigger>}
+          {canAccessDashboardSubtab("audit_logs") && <TabsTrigger
             value="audit_logs"
             className="rounded-lg font-bold py-2 px-4 text-indigo-700 dark:text-indigo-400"
           >
             <History size={16} className="ml-1.5 inline text-indigo-600" />
             سجل العمليات
-          </TabsTrigger>
+          </TabsTrigger>}
         </TabsList>
 
         {/* TAB 1: EXECUTIVE DASHBOARD */}
