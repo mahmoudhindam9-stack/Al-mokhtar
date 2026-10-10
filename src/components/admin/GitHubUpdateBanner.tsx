@@ -28,12 +28,22 @@ export function GitHubUpdateBanner() {
     });
 
     // Auto-check if enabled and not checked recently
-    const settings = githubUpdateService.getSettings();
-    if (settings.autoCheck) {
-      githubUpdateService.checkForUpdates(false).catch(() => {});
-    }
+    const runAutoCheck = () => {
+      if (githubUpdateService.getSettings().autoCheck) {
+        githubUpdateService.checkForUpdates(false).catch(() => {});
+      }
+    };
+    runAutoCheck();
+    const interval = window.setInterval(runAutoCheck, 15 * 60 * 1000);
+    const onFocus = () => runAutoCheck();
+    const onOnline = () => runAutoCheck();
+    window.addEventListener("focus", onFocus);
+    window.addEventListener("online", onOnline);
 
     return () => {
+      window.clearInterval(interval);
+      window.removeEventListener("focus", onFocus);
+      window.removeEventListener("online", onOnline);
       unsubscribe();
     };
   }, []);
@@ -44,7 +54,7 @@ export function GitHubUpdateBanner() {
 
   const handleApplyUpdate = async () => {
     setIsUpdating(true);
-    toast.loading("جاري تطبيق التحديث وتحديث ملفات النظام...", { id: "applying-update" });
+    toast.loading("جاري فتح صفحة تنزيل الإصدار المنشور على GitHub...", { id: "applying-update" });
     const res = await githubUpdateService.performUpdate();
     if (res.success) {
       toast.success(res.message, { id: "applying-update" });
@@ -92,7 +102,7 @@ export function GitHubUpdateBanner() {
             className="h-8 px-3 text-xs font-black bg-white text-orange-700 hover:bg-amber-50 shadow-sm"
           >
             <RefreshCw size={13} className={isUpdating ? "animate-spin ml-1.5" : "ml-1.5"} />
-            {isUpdating ? "جاري التحديث..." : "تحديث الآن"}
+            {isUpdating ? "جاري التحديث..." : "تنزيل التحديث"}
           </Button>
           <button
             onClick={() => setDismissed(true)}
@@ -122,7 +132,7 @@ export function GitHubUpdateBanner() {
             <div className="p-3 bg-muted/60 rounded-xl border space-y-1">
               <div className="font-bold text-xs text-muted-foreground">عنوان الإصدار:</div>
               <div className="font-bold text-sm text-foreground">
-                {updateInfo.releaseName || `Restocash v${updateInfo.latestVersion}`}
+                {updateInfo.releaseName || `المختار لإدارة المشروعات v${updateInfo.latestVersion}`}
               </div>
             </div>
 
@@ -167,7 +177,7 @@ export function GitHubUpdateBanner() {
               className="text-xs font-black bg-amber-600 hover:bg-amber-700 text-white"
             >
               <RefreshCw size={14} className={isUpdating ? "animate-spin ml-1.5" : "ml-1.5"} />
-              تأكيد التحديث المباشر
+              تنزيل الإصدار من GitHub
             </Button>
           </DialogFooter>
         </DialogContent>
