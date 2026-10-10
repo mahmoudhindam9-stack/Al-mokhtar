@@ -291,14 +291,14 @@ function LoginPage() {
         </p>
         <p className="text-xs text-muted-foreground text-center">
           {isHostedDeployment()
-            ? "نسخة الإنترنت: يلزم حساب مدير موثّق في مشروع Supabase."
+            ? "نسخة الإنترنت: استخدم حسابًا مسجّلًا في صفحة المستخدمين، وتُطبَّق عليه صلاحياته."
             : "النسخة المحلية تعمل دون اتصال بالإنترنت وتحتفظ ببيانات هذا الجهاز."}
         </p>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <Label>اسم المستخدم</Label>
             <Input value={username} onChange={(event) => setUsername(event.target.value)}
-              required placeholder="admin" className="mt-1" autoComplete="username" autoFocus />
+              required placeholder="اسم المستخدم" className="mt-1" autoComplete="username" autoFocus />
           </div>
           <div>
             <Label>كلمة المرور</Label>
