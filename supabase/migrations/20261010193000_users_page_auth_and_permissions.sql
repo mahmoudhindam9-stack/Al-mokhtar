@@ -6,6 +6,24 @@ ALTER TABLE public.profiles
 ALTER TABLE public.profiles
   ADD COLUMN IF NOT EXISTS permissions jsonb NOT NULL DEFAULT '{}'::jsonb;
 
+-- Bring older app-created Supabase users into the shared directory if the previous
+-- users page created their Auth identity without creating a profile row.
+-- Existing profile roles are never overwritten; unrecognized accounts start as cashier.
+INSERT INTO public.profiles (id, username, full_name, phone, role, permissions, created_at, updated_at)
+SELECT
+  u.id,
+  lower(trim(coalesce(nullif(u.raw_user_meta_data ->> 'username', ''), split_part(coalesce(u.email, ''), '@', 1), 'user'))),
+  nullif(u.raw_user_meta_data ->> 'full_name', ''),
+  nullif(u.raw_user_meta_data ->> 'phone', ''),
+  'cashier',
+  '{}'::jsonb,
+  coalesce(u.created_at, now()),
+  coalesce(u.updated_at, now())
+FROM auth.users u
+WHERE lower(split_part(coalesce(u.email, ''), '@', 2)) IN ('restocash.local', 'almokhtar.local', 'mokhtar.local')
+  AND NOT EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = u.id)
+ON CONFLICT (id) DO NOTHING;
+
 -- Backfill usernames from existing profile values, auth metadata, or the login email.
 WITH source_rows AS (
   SELECT
