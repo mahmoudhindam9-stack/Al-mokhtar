@@ -91,6 +91,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         content: "نظام المختار المتكامل لإدارة المشروعات، العقود، المحاسبة ERP، الخزائن والمخازن.",
       },
       { name: "author", content: "المختار لإدارة المشروعات" },
+      { name: "theme-color", content: "#07182a" },
       {
         property: "og:title",
         content: "المختار لإدارة المشروعات — نظام إدارة المشروعات والمحاسبة ERP",
@@ -114,7 +115,6 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "stylesheet", href: appCss },
       { rel: "icon", href: "/al-mokhtar-mark.svg", type: "image/svg+xml" },
       { rel: "apple-touch-icon", href: "/al-mokhtar-mark.svg" },
-      { name: "theme-color", content: "#07182a" },
     ],
   }),
   component: RootComponent,
