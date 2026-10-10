@@ -272,7 +272,6 @@ export function AdminLayout({ children }: { children?: ReactNode }) {
   };
   const activeNavItem = nav.find(isNavItemActive);
   const financialPermissionKeys = ["accounting", "accounting_view", "treasury", "journal_approval", "expense_approval", "revenue_approval", "cost_centers"];
-  const inventoryPermissionKeys = ["inventory", "inventory_view", "purchasing", "purchasing_view", "production", "production_view"];
   const requiredForPath = pathname === "/admin"
     ? []
     : pathname.startsWith("/admin/accounts") || pathname.startsWith("/admin/ledger") || pathname.startsWith("/admin/ai-accountant")
