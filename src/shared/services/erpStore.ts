@@ -1139,6 +1139,16 @@ export class ERPStore {
   listeners = [];
   constructor() {
     this.state = this.loadState();
+    if (!this.state.legacy_users_purged_2026_10_10) {
+      this.state.users = ensureLocalLoginUsers(this.state.users);
+      const activeUsername = String(this.state.currentUser || "").toLowerCase();
+      if (!this.state.users.some((user: any) => String(user.username || "").toLowerCase() === activeUsername)) {
+        this.state.currentUser = "";
+      }
+      this.state.legacy_users_purged_2026_10_10 = true;
+      this.saveState();
+      this.saveToIDB(this.state);
+    }
     if (!this.state.park_sales_hard_zero_reset_v4_2026_09_03) {
       this.state.parkShifts = [];
       this.state.parkActiveShift = null;
@@ -1201,7 +1211,23 @@ export class ERPStore {
         if (e.key === "restocash_erp_state" && e.newValue) {
           try {
             const newState = JSON.parse(e.newValue);
-            this.state = newState;
+            const cleanedUsers = ensureLocalLoginUsers(newState.users);
+            const cleanedCurrentUser = cleanedUsers.some(
+              (user: any) => String(user.username || "").toLowerCase() === String(newState.currentUser || "").toLowerCase(),
+            ) ? newState.currentUser : "";
+            const accountStateChanged =
+              cleanedUsers.length !== (Array.isArray(newState.users) ? newState.users.length : 0) ||
+              cleanedCurrentUser !== (newState.currentUser || "");
+            this.state = {
+              ...newState,
+              users: cleanedUsers,
+              currentUser: cleanedCurrentUser,
+              legacy_users_purged_2026_10_10: true,
+            };
+            if (accountStateChanged) {
+              this.saveState();
+              this.saveToIDB(this.state);
+            }
             this.notify();
           } catch (err) {
             console.error("Failed to parse ERP state from storage event:", err);
@@ -1281,6 +1307,10 @@ export class ERPStore {
                   ...this.getDefaultState(),
                   ...idbState,
                   users: ensureLocalLoginUsers(idbState.users),
+                  currentUser: ensureLocalLoginUsers(idbState.users).some(
+                    (user: any) => String(user.username || "").toLowerCase() === String(idbState.currentUser || "").toLowerCase(),
+                  ) ? idbState.currentUser : "",
+                  legacy_users_purged_2026_10_10: true,
                   parkShifts: idbState.park_sales_hard_zero_reset_v4_2026_09_03
                     ? cleanedIdbShifts
                     : [],
@@ -1308,6 +1338,8 @@ export class ERPStore {
                     : DEFAULT_MAINTENANCE_FACILITIES,
                 };
                 this.recalculateAccountBalances();
+                this.saveState();
+                this.saveToIDB(this.state);
                 this.notify();
               }
             }
