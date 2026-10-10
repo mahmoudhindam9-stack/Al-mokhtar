@@ -848,7 +848,7 @@ function MaintenancePage() {
     return (!phrase || haystack.includes(phrase)) && (requestStatus === "ALL" || order.status === requestStatus);
   });
   const filteredTasks = tasks.filter((task: any) =>
-    [task.description, buildingName(task.facilityId), personName(task.assignedTo)].join(" ").toLowerCase().includes(taskSearch.trim().toLowerCase()),
+    [task.description, locationName(task.facilityId, task.subFacilityId), personName(task.assignedTo)].join(" ").toLowerCase().includes(taskSearch.trim().toLowerCase()),
   );
   const filteredCustodies = custodies.filter((item: any) =>
     [item.itemName, item.assetCode, item.employeeName, personName(item.employeeId), buildingName(item.facilityId)].join(" ").toLowerCase().includes(custodySearch.trim().toLowerCase()),
@@ -952,7 +952,7 @@ function MaintenancePage() {
               <div className="divide-y divide-border">
                 {[...orders].sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 5).map((order: any) =>
                   <div key={order.id} className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div><p className="font-bold">#{order.orderNumber} — {order.title}</p><p className="mt-1 text-xs text-muted-foreground">{buildingName(order.facilityId)} · {dateLabel(order.createdAt)}</p></div>
+                    <div><p className="font-bold">#{order.orderNumber} — {order.title}</p><p className="mt-1 text-xs text-muted-foreground">{locationName(order.facilityId, order.subFacilityId)} · {dateLabel(order.createdAt)}</p></div>
                     <span className="w-fit rounded-full bg-muted px-3 py-1 text-xs font-bold">{statusLabel(order.status)}</span>
                   </div>)}
                 {orders.length === 0 && <p className="py-8 text-center text-sm text-muted-foreground">لا توجد طلبات صيانة بعد. ستبدأ القائمة فارغة.</p>}
@@ -976,7 +976,8 @@ function MaintenancePage() {
             <CardHeader className="flex flex-row items-center justify-between"><div><CardTitle>{editingOrderId ? "تعديل طلب الصيانة" : "إنشاء طلب صيانة"}</CardTitle><CardDescription>تُحفظ البيانات في مخزن المختار المحلي وتظهر في لوحة الصيانة والتقارير.</CardDescription></div><button className={smallButton} onClick={closeOrderForm}><X size={16}/></button></CardHeader>
             <CardContent><form onSubmit={saveOrder} className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               <Field label="عنوان الطلب"><input className={inputClass} value={orderForm.title} onChange={(e) => setOrderValue("title", e.target.value)} required/></Field>
-              <Field label="المبنى"><select className={selectClass} value={orderForm.facilityId} onChange={(e) => setOrderValue("facilityId", e.target.value)}><option value="">اختر المبنى</option>{facilities.map((item: any) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></Field>
+              <Field label="المبنى"><select className={selectClass} value={orderForm.facilityId} onChange={(e) => { setOrderValue("facilityId", e.target.value); setOrderValue("subFacilityId", ""); }}><option value="">اختر المبنى</option>{facilities.map((item: any) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></Field>
+              <Field label="الفرع / الموقع التفصيلي"><select className={selectClass} value={orderForm.subFacilityId || ""} onChange={(e) => setOrderValue("subFacilityId", e.target.value)}><option value="">المبنى بالكامل</option>{branchOptionsFor(orderForm.facilityId).map((branch) => <option key={branch.id} value={branch.id}>{branch.name}</option>)}</select></Field>
               <Field label="نوع الصيانة (افصل الأنواع بفاصلة)"><input className={inputClass} value={orderForm.maintenanceType} onChange={(e) => setOrderValue("maintenanceType", e.target.value)} placeholder="كهرباء، تكييف، سباكة"/></Field>
               <Field label="وصف العطل"><textarea className={inputClass} rows={3} value={orderForm.description} onChange={(e) => setOrderValue("description", e.target.value)} required/></Field>
               <Field label="الفني/المسؤول"><select className={selectClass} value={orderForm.assignedTo} onChange={(e) => setOrderValue("assignedTo", e.target.value)}><option value="">غير معيّن</option>{people.map((person: any) => <option key={person.id} value={person.id}>{person.name} — {person.role}</option>)}</select></Field>
@@ -996,7 +997,7 @@ function MaintenancePage() {
                 <tbody>
                   {filteredOrders.map((order: any) => <tr key={order.id} className="border-t border-border/70 align-top">
                     <td className="max-w-xs p-3"><p className="font-black">#{order.orderNumber} — {order.title}</p><p className="mt-1 text-xs text-muted-foreground">{order.description}</p><p className="mt-2 text-[11px] text-muted-foreground">الاستحقاق: {dateLabel(order.deadline)} · الإنشاء: {dateLabel(order.createdAt)}</p></td>
-                    <td className="p-3"><p>{buildingName(order.facilityId)}</p><p className="mt-1 text-xs text-muted-foreground">{personName(order.assignedTo?.[0])}</p></td>
+                    <td className="p-3"><p>{locationName(order.facilityId, order.subFacilityId)}</p><p className="mt-1 text-xs text-muted-foreground">{personName(order.assignedTo?.[0])}</p>{order.issuedParts?.length > 0 && <p className="mt-1 text-[11px] text-emerald-700">{order.issuedParts.length} عملية صرف قطع غيار</p>}</td>
                     <td className="p-3"><span className="mb-2 inline-flex rounded-md bg-muted px-2 py-1 text-xs font-bold">{statusLabel(order.priority)}</span>
                       {canManageRequests ? <select className={`${selectClass} min-w-[125px]`} value={order.status} onChange={(e) => changeOrderStatus(order, e.target.value)}>{ORDER_STATUSES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select> : <p className="text-xs font-bold">{statusLabel(order.status)}</p>}
                     </td>
@@ -1034,7 +1035,8 @@ function MaintenancePage() {
           {showTaskForm && canManagePreventive && <Card><CardHeader className="flex flex-row items-center justify-between"><div><CardTitle>{editingTaskId ? "تعديل المهمة الدورية" : "إضافة مهمة دورية"}</CardTitle><CardDescription>تبدأ قائمة المهام فارغة ويمكنك إنشاء الجدول التشغيلي الخاص بك.</CardDescription></div><button className={smallButton} onClick={closeTaskForm}><X size={16}/></button></CardHeader>
             <CardContent><form onSubmit={saveTask} className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               <Field label="وصف المهمة"><input className={inputClass} value={taskForm.description} onChange={(e) => setTaskValue("description", e.target.value)} required/></Field>
-              <Field label="المبنى"><select className={selectClass} value={taskForm.facilityId} onChange={(e) => setTaskValue("facilityId", e.target.value)} required><option value="">اختر المبنى</option>{facilities.map((item: any) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></Field>
+              <Field label="المبنى"><select className={selectClass} value={taskForm.facilityId} onChange={(e) => { setTaskValue("facilityId", e.target.value); setTaskValue("subFacilityId", ""); }} required><option value="">اختر المبنى</option>{facilities.map((item: any) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></Field>
+              <Field label="الفرع / الموقع التفصيلي"><select className={selectClass} value={taskForm.subFacilityId || ""} onChange={(e) => setTaskValue("subFacilityId", e.target.value)}><option value="">المبنى بالكامل</option>{branchOptionsFor(taskForm.facilityId).map((branch) => <option key={branch.id} value={branch.id}>{branch.name}</option>)}</select></Field>
               <Field label="التكرار"><select className={selectClass} value={taskForm.frequency} onChange={(e) => setTaskValue("frequency", e.target.value)}>{FREQUENCIES.map((item) => <option value={item.value} key={item.value}>{item.label}</option>)}</select></Field>
               <Field label="موعد الاستحقاق التالي"><input className={inputClass} type="date" value={taskForm.nextDueDate} onChange={(e) => setTaskValue("nextDueDate", e.target.value)} required/></Field>
               <Field label="المسؤول"><select className={selectClass} value={taskForm.assignedTo} onChange={(e) => setTaskValue("assignedTo", e.target.value)}><option value="">غير معيّن</option>{people.map((person: any) => <option key={person.id} value={person.id}>{person.name} — {person.role}</option>)}</select></Field>
@@ -1048,7 +1050,7 @@ function MaintenancePage() {
               const late = task.status !== "COMPLETED" && task.nextDueDate < todayDate;
               return <Card key={task.id} className="overflow-hidden">
                 <CardContent className="p-4">
-                  <div className="flex items-start justify-between gap-3"><div><p className="font-black">#{task.taskNumber} — {task.description}</p><p className="mt-1 text-xs text-muted-foreground">{buildingName(task.facilityId)} · {frequencyLabel(task.frequency)}</p></div><span className={`whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-bold ${late ? "bg-rose-500/10 text-rose-700" : task.status === "COMPLETED" ? "bg-emerald-500/10 text-emerald-700" : "bg-amber-500/10 text-amber-700"}`}>{late ? "متأخرة" : task.status === "COMPLETED" ? "مكتملة" : "مجدولة"}</span></div>
+                  <div className="flex items-start justify-between gap-3"><div><p className="font-black">#{task.taskNumber} — {task.description}</p><p className="mt-1 text-xs text-muted-foreground">{locationName(task.facilityId, task.subFacilityId)} · {frequencyLabel(task.frequency)}</p></div><span className={`whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-bold ${late ? "bg-rose-500/10 text-rose-700" : task.status === "COMPLETED" ? "bg-emerald-500/10 text-emerald-700" : "bg-amber-500/10 text-amber-700"}`}>{late ? "متأخرة" : task.status === "COMPLETED" ? "مكتملة" : "مجدولة"}</span></div>
                   <div className="mt-4 grid grid-cols-2 gap-2 text-xs"><div className="rounded-lg bg-muted/40 p-2"><span className="text-muted-foreground">موعد التنفيذ</span><p className="mt-1 font-bold">{dateLabel(task.nextDueDate)}</p></div><div className="rounded-lg bg-muted/40 p-2"><span className="text-muted-foreground">المسؤول</span><p className="mt-1 font-bold">{personName(task.assignedTo)}</p></div></div>
                   {task.notes && <p className="mt-3 text-xs text-muted-foreground">{task.notes}</p>}
                   <div className="mt-4 flex flex-wrap gap-2">{canManagePreventive && <><button className={smallButton} onClick={() => openTaskEditor(task)}><Pencil size={13}/> تعديل</button><button className={`${smallButton} text-emerald-700`} onClick={() => completeTask(task)}><CheckCircle2 size={13}/> تم التنفيذ / جدولة التالية</button><button className={`${smallButton} text-destructive`} onClick={() => deleteTask(task)}><Trash2 size={13}/></button></>}</div>
