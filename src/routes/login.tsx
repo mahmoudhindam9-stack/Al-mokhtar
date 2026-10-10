@@ -37,11 +37,8 @@ async function signInCloudAccount(username: string, password: string) {
   const candidates = Array.from(
     new Set(
       [
-        normalized.includes("@") ? normalized : "",
-        `${base}@mokhtar.local`,
+        normalized.includes("@") ? normalized : `${base}@mokhtar.local`,
         `${base}@restocash.com`,
-        `${base}@restocash.local`,
-        `${base}@mokhtar.com`,
       ].filter(Boolean),
     ),
   );
