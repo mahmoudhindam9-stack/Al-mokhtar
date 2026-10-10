@@ -6,16 +6,14 @@ ALTER TABLE public.profiles
 ALTER TABLE public.profiles
   ADD COLUMN IF NOT EXISTS permissions jsonb NOT NULL DEFAULT '{}'::jsonb;
 
--- Remove legacy Auth identities that are NOT present in the current Users page.
--- Profiles already visible in the Users page are preserved, including the active administrator.
--- This is intentionally a one-time purge: old orphaned accounts must be recreated from the
--- Users page with a role and explicit permissions before they can access the ERP.
+-- Permanently remove every legacy Auth identity that is NOT in the current Users page.
+-- All Auth identities with no public.profiles record are old/unmanaged accounts and cannot remain.
+-- Profiles visible in the current Users page are preserved; old users can later be removed from
+-- that page, which deletes the Auth identity and its cascading records completely.
 DELETE FROM auth.users u
-WHERE lower(split_part(coalesce(u.email, ''), '@', 2))
-      IN ('restocash.local', 'almokhtar.local', 'mokhtar.local', 'restocash.com')
-  AND NOT EXISTS (
-    SELECT 1 FROM public.profiles p WHERE p.id = u.id
-  );
+WHERE NOT EXISTS (
+  SELECT 1 FROM public.profiles p WHERE p.id = u.id
+);
 
 -- Backfill usernames from existing profile values, auth metadata, or the login email.
 WITH source_rows AS (
