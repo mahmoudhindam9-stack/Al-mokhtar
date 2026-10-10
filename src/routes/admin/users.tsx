@@ -73,6 +73,16 @@ function profileToSystemUser(profile: any): SystemUser {
   };
 }
 
+function isActiveUserRecord(user: SystemUser | null | undefined): boolean {
+  if (!user) return false;
+  const activeValue =
+    (typeof window !== "undefined" && (localStorage.getItem("restocash_auth_user") || sessionStorage.getItem("restocash_auth_user"))) || "";
+  const active = activeValue.trim().toLowerCase();
+  const storedUsername = String(user.username || "").trim().toLowerCase();
+  if (!active || !storedUsername) return false;
+  return active === storedUsername || active.split("@")[0] === storedUsername.split("@")[0];
+}
+
 interface PermissionItem {
   key: keyof UserPermission;
   name: string;
@@ -848,6 +858,17 @@ function UsersPage() {
 
   const deleteUser = async () => {
     if (!userToDelete) return;
+    const targetUser = localUsers.find((user) => user.id === userToDelete);
+    if (isActiveUserRecord(targetUser)) {
+      toast({
+        title: "لا يمكن حذف الحساب المستخدم حاليًا",
+        description: "سجّل الدخول بحساب آخر لديه صلاحية إدارة المستخدمين ثم احذف هذا الحساب.",
+        variant: "destructive",
+      });
+      setUserToDelete(null);
+      setIsConfirmDeleteOpen(false);
+      return;
+    }
     try {
       if (isHostedDeployment()) {
         // Removing the profile disables app access even if the Supabase identity remains.
@@ -1205,7 +1226,7 @@ function UsersPage() {
                         setUserToDelete(u.id);
                         setIsConfirmDeleteOpen(true);
                       }}
-                      disabled={u.username === "admin"}
+                      disabled={isActiveUserRecord(u)}
                     >
                       <Trash2 size={14} />
                     </Button>
