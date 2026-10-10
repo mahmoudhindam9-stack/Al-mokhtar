@@ -27,8 +27,8 @@ function LaborLawPage() {
  const [reviewer,setReviewer]=useState("");
  const [notes,setNotes]=useState("");
  const print=()=>window.print();
- return <div dir="rtl" className="p-4 md:p-6 space-y-6">
-  <div className="flex flex-wrap items-start justify-between gap-3"><div><h1 className="text-2xl font-black">قانون العمل واللوائح</h1><p className="text-sm text-muted-foreground mt-1">قسم الموارد البشرية — إعداد مسودة لوائح منشأة {employer}</p></div><Button onClick={print} className="gap-2"><Printer size={16}/> طباعة / حفظ PDF</Button></div>
+ return <div dir="rtl" className="printable-area p-4 md:p-6 space-y-6"><div className="print-brand-header" dir="rtl"><img src="/al-mokhtar-mark.svg" alt="شعار المختار"/><div><strong>المختار</strong><span>لإدارة المشروعات</span></div></div>
+  <div className="flex flex-wrap items-start justify-between gap-3"><div><h1 className="text-2xl font-black">قانون العمل واللوائح</h1><p className="text-sm text-muted-foreground mt-1">قسم الموارد البشرية — إعداد مسودة لوائح منشأة {employer}</p></div><Button onClick={print} className="gap-2 print:hidden"><Printer size={16}/> طباعة / حفظ PDF</Button></div>
   <Card><CardHeader><CardTitle>بيانات المنشأة والاعتماد</CardTitle><CardDescription>املأ بيانات المنشأة قبل تجهيز نسخة للمراجعة والتقديم للجهة المختصة عند اللزوم.</CardDescription></CardHeader><CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
    <div className="space-y-2"><Label>اسم المنشأة</Label><Input value={employer} onChange={e=>setEmployer(e.target.value)}/></div>
    <div className="space-y-2"><Label>طبيعة النشاط</Label><Input value={activity} onChange={e=>setActivity(e.target.value)}/></div>
