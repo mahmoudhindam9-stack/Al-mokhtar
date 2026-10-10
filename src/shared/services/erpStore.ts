@@ -1018,9 +1018,7 @@ function ensureLocalLoginUsers(users: unknown): SystemUser[] {
       user &&
       !LEGACY_DEFAULT_USER_IDS.has(String(user.id || "")) &&
       typeof user.username === "string" &&
-      user.username.trim().length > 0 &&
-      typeof user.password === "string" &&
-      user.password.length > 0,
+      user.username.trim().length > 0,
   ) as SystemUser[];
 }
 
