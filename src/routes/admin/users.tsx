@@ -895,10 +895,12 @@ function UsersPage() {
     const profilePermissions =
       user.permissions && Object.keys(user.permissions).length > 0 ? user.permissions : null;
     const currentPerms =
-      (isHostedDeployment() ? profilePermissions : userSpecificStatePermissions) ||
-      profilePermissions ||
-      userSpecificStatePermissions ||
-      defaultPermissionsForRole(user.role);
+      ((isHostedDeployment() ? profilePermissions : userSpecificStatePermissions) || profilePermissions || userSpecificStatePermissions)?.super_admin_full_access === true
+        ? defaultPermissionsForRole("super_admin")
+        : (isHostedDeployment() ? profilePermissions : userSpecificStatePermissions) ||
+          profilePermissions ||
+          userSpecificStatePermissions ||
+          defaultPermissionsForRole(user.role);
     setEditedPermissions({ ...currentPerms });
   };
 
