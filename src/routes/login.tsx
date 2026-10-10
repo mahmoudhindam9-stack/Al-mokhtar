@@ -8,6 +8,7 @@ import { RestocashLogo } from "@/components/RestocashLogo";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { supabase } from "@/integrations/supabase/client";
 import { erpStore, type SystemUser } from "@/shared/services/erpStore";
+import { authService } from "@/features/auth/services/authService";
 
 export const Route = createFileRoute("/login")({
   head: () => ({ meta: [{ title: "تسجيل الدخول — المختار لإدارة المشروعات" }] }),
@@ -32,7 +33,7 @@ function safeInternalRedirect(value: string | null): string {
   return value && value.startsWith("/") && !value.startsWith("//") ? value : "/admin";
 }
 
-async function signInHostedAdminAccount(username: string, password: string) {
+async function signInHostedUser(username: string, password: string) {
   const normalized = username.trim().toLowerCase();
   const candidates = normalized.includes("@")
     ? [normalized]
@@ -42,21 +43,32 @@ async function signInHostedAdminAccount(username: string, password: string) {
         `${normalized}@mokhtar.local`,
         `${normalized}@restocash.com`,
       ];
+  let accountMissingFromUsersPage = false;
+
   for (const email of Array.from(new Set(candidates))) {
     try {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error || !data?.session) continue;
-      const role = String(data.session.user.app_metadata?.role || "");
-      if (["admin", "super_admin"].includes(role)) {
-        return { session: data.session, email, role };
+      if (error || !data?.session?.user?.id) continue;
+
+      let profile: any = null;
+      try {
+        profile = await authService.getProfile(data.session.user.id);
+      } catch (profileError) {
+        console.error("Could not load the signed-in user's shared profile.", profileError);
       }
-      // Never leave a session authenticated if it lacks the required administrator role.
+
+      if (profile?.id && profile?.username) {
+        return { session: data.session, email, profile };
+      }
+
+      accountMissingFromUsersPage = true;
       await supabase.auth.signOut().catch(() => undefined);
     } catch {
       // Try the next supported legacy email suffix.
     }
   }
-  return null;
+
+  return accountMissingFromUsersPage ? { reason: "not-listed" as const } : null;
 }
 
 async function signInCloudAccount(username: string, password: string) {
@@ -103,19 +115,39 @@ function LoginPage() {
       // The local default account must never grant access to the hosted ERP.
       if (isHostedDeployment()) {
         localStorage.setItem("remember_me", rememberMe ? "true" : "false");
-        const authenticated = await signInHostedAdminAccount(normalizedUsername, password);
+        const authenticated = await signInHostedUser(normalizedUsername, normalizedPassword);
         if (!authenticated) {
-          setError("تعذر الدخول السحابي. تحقق من بيانات الدخول وصلاحية المدير في مشروع Supabase.");
+          setError("اسم المستخدم أو كلمة المرور غير صحيحة في حساب المستخدم السحابي.");
           return;
         }
-        const { session, role, email } = authenticated;
+        if ("reason" in authenticated && authenticated.reason === "not-listed") {
+          setError("بيانات الدخول صحيحة لكن الحساب غير موجود في قائمة المستخدمين المشتركة أو لا يملك ملف صلاحيات. اطلب من مدير النظام تفعيل الحساب من صفحة المستخدمين.");
+          return;
+        }
+        const { session, profile, email } = authenticated;
         const activeEmail = session.user.email || email;
+        const activeUsername = String(profile.username || activeEmail.split("@")[0]).toLowerCase();
+        const permissions = (profile.permissions || {}) as Record<string, boolean>;
+        const role = String(profile.role || "cashier");
+
         localStorage.removeItem("restocash_auth_user");
         sessionStorage.removeItem("restocash_auth_user");
+        localStorage.removeItem("restocash_user_role");
+        sessionStorage.removeItem("restocash_user_role");
         const storage = rememberMe ? localStorage : sessionStorage;
         storage.setItem("restocash_auth_user", activeEmail);
         storage.setItem("restocash_user_role", role);
-        erpStore.setCurrentUser(activeEmail.split("@")[0]);
+        erpStore.updateUserPermission(activeUsername, permissions);
+        erpStore.upsertUser({
+          id: profile.id,
+          full_name: profile.full_name || activeUsername,
+          username: activeUsername,
+          phone: profile.phone || "",
+          role,
+          permissions,
+          created_at: profile.created_at || new Date().toISOString(),
+        } as SystemUser);
+        erpStore.setCurrentUser(activeUsername);
         navigate({ to: destination as any });
         return;
       }
