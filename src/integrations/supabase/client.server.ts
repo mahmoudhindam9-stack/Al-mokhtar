@@ -47,28 +47,16 @@ function createSupabaseFetch(supabaseKey: string): typeof fetch {
 }
 
 function createSupabaseAdminClient() {
-  const DEFAULT_SUPABASE_URL = "https://myqtvbfibvgxkqwxvuru.supabase.co";
-  const rawUrlCandidates = [process.env.SUPABASE_URL, process.env.VITE_SUPABASE_URL];
-  const SUPABASE_URL = rawUrlCandidates.find(isValidHttpUrl) || DEFAULT_SUPABASE_URL;
+  const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-  let SUPABASE_SERVICE_ROLE_KEY =
-    process.env.SUPABASE_SERVICE_ROLE_KEY ||
-    process.env.SUPABASE_PUBLISHABLE_KEY ||
-    process.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
-    "sb_publishable_srgqLn2ZvysGKh47yCQ0Kg_IW02yjDf";
-
-  if (
-    !SUPABASE_SERVICE_ROLE_KEY ||
-    SUPABASE_SERVICE_ROLE_KEY.startsWith("http://") ||
-    SUPABASE_SERVICE_ROLE_KEY.startsWith("https://")
-  ) {
-    SUPABASE_SERVICE_ROLE_KEY = "sb_publishable_srgqLn2ZvysGKh47yCQ0Kg_IW02yjDf";
+  if (!url || !url.startsWith("https://") || !serviceRoleKey) {
+    throw new Error(
+      "Supabase admin access is disabled. Configure SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY on a trusted server before enabling cloud administration.",
+    );
   }
 
-  return createClient<Database>(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
-    global: {
-      fetch: createSupabaseFetch(SUPABASE_SERVICE_ROLE_KEY),
-    },
+  return createClient<Database>(url, serviceRoleKey, {
     auth: {
       storage: undefined,
       persistSession: false,

@@ -1,36 +1,100 @@
 $ErrorActionPreference = "Stop"
+$root = Split-Path -Parent $MyInvocation.MyCommand.Path
+Set-Location $root
 
-Write-Host "===================================================" -ForegroundColor Cyan
-Write-Host "   Restocash ERP - Automated Setup & Installation" -ForegroundColor Cyan
-Write-Host "===================================================" -ForegroundColor Cyan
+Write-Host ""
+Write-Host "============================================" -ForegroundColor DarkYellow
+Write-Host "  Al-Mokhtar - Local Offline Setup" -ForegroundColor Yellow
+Write-Host "============================================" -ForegroundColor DarkYellow
 Write-Host ""
 
-$ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-Set-Location $ScriptDir
+$bundledNode = Join-Path $root "runtime\node.exe"
+$bundledNpm = Join-Path $root "runtime\npm.cmd"
+$nodeExe = $null
+$npmCmd = $null
 
-Write-Host "[1/3] Installing NPM packages..." -ForegroundColor Yellow
-npm install
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "Error installing dependencies." -ForegroundColor Red
-    Pause
-    exit $LASTEXITCODE
+if (Test-Path $bundledNode) {
+    $nodeExe = $bundledNode
+    if (Test-Path $bundledNpm) { $npmCmd = $bundledNpm }
+} else {
+    $systemNode = Get-Command node -ErrorAction SilentlyContinue
+    if ($systemNode) {
+        $versionText = (& $systemNode.Source --version).Trim().TrimStart("v")
+        try {
+            if ([version]$versionText -ge [version]"22.12.0") {
+                $nodeExe = $systemNode.Source
+                $systemNpm = Get-Command npm.cmd -ErrorAction SilentlyContinue
+                if ($systemNpm) { $npmCmd = $systemNpm.Source }
+            }
+        } catch { }
+    }
 }
 
-Write-Host ""
-Write-Host "[2/3] Creating Desktop Shortcut..." -ForegroundColor Yellow
-$DesktopPath = [Environment]::GetFolderPath("Desktop")
-$ShortcutPath = Join-Path $DesktopPath "Restocash ERP.lnk"
-$WshShell = New-Object -ComObject WScript.Shell
-$Shortcut = $WshShell.CreateShortcut($ShortcutPath)
-$Shortcut.TargetPath = Join-Path $ScriptDir "start-app.bat"
-$Shortcut.WorkingDirectory = $ScriptDir
-$Shortcut.WindowStyle = 1
-$Shortcut.Save()
+if (-not $nodeExe) {
+    Write-Host "Node.js 22.12+ is not installed. Downloading a portable runtime..." -ForegroundColor Yellow
+    try {
+        $index = Invoke-RestMethod -Uri "https://nodejs.org/dist/index.json" -TimeoutSec 20
+        $release = $index | Where-Object { $_.version -like "v22.*" } | Select-Object -First 1
+        if (-not $release) { throw "Could not find a Node.js 22 release." }
+        $archiveName = "node-$($release.version)-win-x64.zip"
+        $archiveUrl = "https://nodejs.org/dist/$($release.version)/$archiveName"
+        $tempArchive = Join-Path $env:TEMP $archiveName
+        $tempExtract = Join-Path $env:TEMP ("almokhtar-node-" + [guid]::NewGuid().ToString("N"))
+        Invoke-WebRequest -Uri $archiveUrl -OutFile $tempArchive -TimeoutSec 180
+        Expand-Archive -Path $tempArchive -DestinationPath $tempExtract -Force
+        $runtimeDir = Join-Path $root "runtime"
+        New-Item -ItemType Directory -Path $runtimeDir -Force | Out-Null
+        Copy-Item (Join-Path $tempExtract "$($archiveName -replace '\.zip$','')\*") $runtimeDir -Recurse -Force
+        Remove-Item $tempArchive -Force -ErrorAction SilentlyContinue
+        Remove-Item $tempExtract -Recurse -Force -ErrorAction SilentlyContinue
+        $nodeExe = $bundledNode
+        $npmCmd = $bundledNpm
+    } catch {
+        throw "This copy does not include the offline runtime. Connect to the internet once, or download the 'Al-Mokhtar-Offline' package which includes Node.js and dependencies. Details: $($_.Exception.Message)"
+    }
+}
 
-Write-Host ""
-Write-Host "[3/3] Setup Completed Successfully!" -ForegroundColor Green
-Write-Host "Desktop Shortcut created: Restocash ERP" -ForegroundColor Green
-Write-Host ""
-Write-Host "Launching Restocash ERP in Standalone Application Mode..." -ForegroundColor Cyan
+if (-not $nodeExe -or -not (Test-Path $nodeExe)) {
+    throw "Node.js could not be prepared."
+}
 
-Start-Process (Join-Path $ScriptDir "start-app.bat")
+if (-not (Test-Path (Join-Path $root "node_modules\vite\bin\vite.js"))) {
+    if (-not $npmCmd) {
+        $systemNpm = Get-Command npm.cmd -ErrorAction SilentlyContinue
+        if ($systemNpm) { $npmCmd = $systemNpm.Source }
+    }
+    if (-not $npmCmd) {
+        throw "The npm runtime is missing. Download the complete Al-Mokhtar-Offline package."
+    }
+    Write-Host "Installing application dependencies. Internet is needed only for this first install..." -ForegroundColor Yellow
+    & $npmCmd ci
+    if ($LASTEXITCODE -ne 0) {
+        throw "Dependency installation failed. For first-run offline use, download the complete Al-Mokhtar-Offline package."
+    }
+}
+
+$url = "http://127.0.0.1:3000"
+Write-Host "Starting Al-Mokhtar locally at $url" -ForegroundColor Green
+$arguments = @("node_modules/vite/bin/vite.js", "--host", "127.0.0.1", "--port", "3000", "--strictPort")
+$server = Start-Process -FilePath $nodeExe -ArgumentList $arguments -WorkingDirectory $root -PassThru
+
+$ready = $false
+for ($i = 0; $i -lt 45; $i++) {
+    Start-Sleep -Seconds 1
+    if ($server.HasExited) {
+        throw "The local application stopped during startup. Check port 3000 and run setup again."
+    }
+    try {
+        $response = Invoke-WebRequest -Uri $url -TimeoutSec 2 -UseBasicParsing
+        if ($response.StatusCode -ge 200 -and $response.StatusCode -lt 500) {
+            $ready = $true
+            break
+        }
+    } catch { }
+}
+if (-not $ready) {
+    Write-Warning "The local server has not responded yet. Open $url after the console shows that Vite is ready."
+} else {
+    Start-Process $url
+    Write-Host "Al-Mokhtar is running. Keep its console window open." -ForegroundColor Green
+}

@@ -1,0 +1,54 @@
+name: Build Al-Mokhtar offline Windows package
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [offline-first-setup, main]
+
+permissions:
+  contents: read
+
+jobs:
+  package-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install, typecheck and build
+        run: |
+          npm ci
+          npm run typecheck
+          npm run build
+      - name: Assemble portable offline folder
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $source = $env:GITHUB_WORKSPACE
+          $package = Join-Path $env:RUNNER_TEMP "Al-Mokhtar-Offline"
+          New-Item -ItemType Directory -Path $package -Force | Out-Null
+          robocopy $source $package /E /XD .git .github node_modules runtime dist /XF .env .env.local
+          if ($LASTEXITCODE -ge 8) { exit $LASTEXITCODE }
+          Copy-Item (Join-Path $source "node_modules") $package -Recurse -Force
+          Copy-Item (Join-Path $source "dist") $package -Recurse -Force
+          $nodeVersion = (& node --version).Trim()
+          $runtimeZipName = "node-$nodeVersion-win-x64.zip"
+          $runtimeZip = Join-Path $env:RUNNER_TEMP $runtimeZipName
+          Invoke-WebRequest "https://nodejs.org/dist/$nodeVersion/$runtimeZipName" -OutFile $runtimeZip
+          $runtimeExtract = Join-Path $env:RUNNER_TEMP "node-portable"
+          Expand-Archive $runtimeZip $runtimeExtract -Force
+          $runtimeSource = Join-Path $runtimeExtract "node-$nodeVersion-win-x64"
+          $runtimeTarget = Join-Path $package "runtime"
+          New-Item -ItemType Directory -Path $runtimeTarget -Force | Out-Null
+          Copy-Item (Join-Path $runtimeSource "*") $runtimeTarget -Recurse -Force
+          $zipOut = Join-Path $env:GITHUB_WORKSPACE "Al-Mokhtar-Offline.zip"
+          Compress-Archive -Path (Join-Path $package "*") -DestinationPath $zipOut -CompressionLevel Optimal -Force
+      - name: Upload offline package
+        uses: actions/upload-artifact@v4
+        with:
+          name: Al-Mokhtar-Offline
+          path: Al-Mokhtar-Offline.zip
+          if-no-files-found: error
+          retention-days: 30

@@ -120,13 +120,7 @@ function SystemUpdatePage() {
   const [repoInput, setRepoInput] = useState(updateSettings.repo);
 
   // GitHub Push State
-  const [githubToken, setGithubToken] = useState<string>(() => {
-    try {
-      return localStorage.getItem("restocash_github_pat_token") || "";
-    } catch {
-      return "";
-    }
-  });
+  const [githubToken, setGithubToken] = useState<string>("");
   const [showToken, setShowToken] = useState(false);
   const [pushCommitMsg, setPushCommitMsg] = useState(
     "Update Al-Mokhtar: System sync & improvements",
@@ -154,135 +148,32 @@ function SystemUpdatePage() {
   } | null>(null);
 
   const handlePushToGitHub = async () => {
-    if (!githubToken.trim()) {
-      toast({
-        title: "رمز GitHub Token مطلوب",
-        description: "يرجى إدخال GitHub Personal Access Token (PAT) للمصادقة وتخويل الرفع.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    try {
-      localStorage.setItem("restocash_github_pat_token", githubToken.trim());
-    } catch {
-      // Ignore storage errors
-    }
-
-    setIsPushing(true);
-    setPushResult(null);
-    toast({
-      title: "جاري رفع التحديثات إلى GitHub...",
-      description: `يتم تجهيز الملفات ومزامنتها مع ${updateSettings.repo} على الفرع main...`,
+    localStorage.removeItem("restocash_github_pat_token");
+    setPushResult({
+      error: "تم إيقاف الرفع من داخل التطبيق لحماية الرموز ومنع تنفيذ أوامر على الخادم.",
     });
-
-    try {
-      const res = await fetch("/api/github/push", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          token: githubToken.trim(),
-          repo: updateSettings.repo,
-          commitMessage: pushCommitMsg.trim() || `Update Al-Mokhtar v${CURRENT_VERSION}`,
-        }),
-      });
-
-      const data = await res.json();
-      if (res.ok && data.success) {
-        setPushResult({ success: true, message: data.message, output: data.output });
-        toast({
-          title: "تم الرفع إلى GitHub بنجاح! 🚀",
-          description: data.message,
-        });
-        githubUpdateService.checkForUpdates(true).catch(() => {});
-      } else {
-        setPushResult({ error: data.error || "فشلت عملية الرفع", output: data.details });
-        toast({
-          title: "فشل الرفع إلى GitHub",
-          description: data.error || "حدث خطأ أثناء الاتصال بمستودع GitHub",
-          variant: "destructive",
-        });
-      }
-    } catch (err: any) {
-      setPushResult({ error: err.message || "تعذر إرسال طلب الرفع" });
-      toast({
-        title: "خطأ في الاتصال",
-        description: err.message || "تعذر الاتصال بالخادم",
-        variant: "destructive",
-      });
-    } finally {
-      setIsPushing(false);
-    }
+    toast({
+      title: "النشر من داخل التطبيق متوقف",
+      description: "ارفع التعديلات إلى GitHub مباشرة، ثم اربط المستودع في Vercel ليتم النشر تلقائيًا.",
+      variant: "destructive",
+    });
   };
 
   const handleCreateGitHubRelease = async () => {
-    if (!githubToken.trim()) {
-      toast({
-        title: "رمز GitHub Token مطلوب",
-        description: "يرجى إدخال GitHub Personal Access Token (PAT) للمصادقة وتخويل إنشاء الإصدار.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    try {
-      localStorage.setItem("restocash_github_pat_token", githubToken.trim());
-    } catch {
-      // Ignore storage errors
-    }
-
-    setIsCreatingRelease(true);
-    setReleaseResult(null);
-    toast({
-      title: "جاري إنشاء ونشر الإصدار على GitHub...",
-      description: `يتم تجهيز الإصدار ${releaseTagName} ونشره على مستودع ${updateSettings.repo}...`,
+    localStorage.removeItem("restocash_github_pat_token");
+    setReleaseResult({
+      error: "إنشاء الإصدارات من داخل التطبيق متوقف. استخدم GitHub Releases أو سير عمل الإصدار.",
     });
-
-    try {
-      const res = await fetch("/api/github/release", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          token: githubToken.trim(),
-          repo: updateSettings.repo,
-          tagName: releaseTagName.trim(),
-          releaseName: releaseTitle.trim(),
-          releaseNotes: releaseNotes.trim(),
-          targetCommitish: "main",
-        }),
-      });
-
-      const data = await res.json();
-      if (res.ok && data.success) {
-        setReleaseResult({
-          success: true,
-          message: data.message,
-          releaseUrl: data.release?.html_url,
-        });
-        toast({
-          title: "🎉 تم إنشاء الإصدار على GitHub بنجاح!",
-          description: `الإصدار ${releaseTagName} متاح الآن رسميًا على GitHub.`,
-        });
-        githubUpdateService.checkForUpdates(true).catch(() => {});
-      } else {
-        setReleaseResult({ error: data.error || "فشل إنشاء الإصدار" });
-        toast({
-          title: "فشل إنشاء الإصدار",
-          description: data.error || "حدث خطأ أثناء الاتصال بمستودع GitHub",
-          variant: "destructive",
-        });
-      }
-    } catch (err: any) {
-      setReleaseResult({ error: err.message || "تعذر إرسال طلب إنشاء الإصدار" });
-      toast({
-        title: "خطأ في الاتصال",
-        description: err.message || "تعذر الاتصال بالخادم",
-        variant: "destructive",
-      });
-    } finally {
-      setIsCreatingRelease(false);
-    }
+    toast({
+      title: "إنشاء الإصدار من داخل التطبيق متوقف",
+      description: "استخدم GitHub Releases بعد التحقق من البناء.",
+      variant: "destructive",
+    });
   };
+
+  useEffect(() => {
+    localStorage.removeItem("restocash_github_pat_token");
+  }, []);
 
   useEffect(() => {
     const unsub = githubUpdateService.subscribe((info) => {

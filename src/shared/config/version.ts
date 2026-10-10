@@ -6,8 +6,8 @@
 export const CURRENT_VERSION = "1.3.0";
 export const APP_RELEASE_NAME = "المختار لإدارة المشروعات v1.3.0";
 export const BUILD_DATE = "2026-10-04";
-export const DEFAULT_GITHUB_REPO = "mahmoudhindam9-stack/jupa-sep";
-export const DEFAULT_GITHUB_REPO_URL = "https://github.com/mahmoudhindam9-stack/jupa-sep.git";
+export const DEFAULT_GITHUB_REPO = "mahmoudhindam9-stack/Al-mokhtar";
+export const DEFAULT_GITHUB_REPO_URL = "https://github.com/mahmoudhindam9-stack/Al-mokhtar.git";
 
 /**
  * Normalizes version strings by trimming and stripping leading 'v'
@@ -21,9 +21,9 @@ export function normalizeVersion(v: string | undefined | null): string {
 /**
  * Parses user input which can be a full GitHub clone URL or owner/repo format
  * e.g.:
- *  "https://github.com/mahmoudhindam9-stack/jupa-se.git" -> "mahmoudhindam9-stack/jupa-se"
- *  "github.com/mahmoudhindam9-stack/jupa-se" -> "mahmoudhindam9-stack/jupa-se"
- *  "mahmoudhindam9-stack/jupa-se" -> "mahmoudhindam9-stack/jupa-se"
+ *  "https://github.com/mahmoudhindam9-stack/Al-mokhtar.git" -> "mahmoudhindam9-stack/Al-mokhtar"
+ *  "github.com/mahmoudhindam9-stack/Al-mokhtar" -> "mahmoudhindam9-stack/Al-mokhtar"
+ *  "mahmoudhindam9-stack/Al-mokhtar" -> "mahmoudhindam9-stack/Al-mokhtar"
  */
 export function parseGitHubRepo(input: string | undefined | null): string {
   if (!input) return DEFAULT_GITHUB_REPO;

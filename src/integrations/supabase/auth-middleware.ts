@@ -47,22 +47,17 @@ function createSupabaseFetch(supabaseKey: string): typeof fetch {
 
 export const requireSupabaseAuth = createMiddleware({ type: "function" }).server(
   async ({ next }) => {
-    const DEFAULT_SUPABASE_URL = "https://myqtvbfibvgxkqwxvuru.supabase.co";
     const rawUrlCandidates = [process.env.SUPABASE_URL, process.env.VITE_SUPABASE_URL];
-    const SUPABASE_URL = rawUrlCandidates.find(isValidHttpUrl) || DEFAULT_SUPABASE_URL;
+    const SUPABASE_URL = rawUrlCandidates.find(isValidHttpUrl);
 
-    let SUPABASE_PUBLISHABLE_KEY =
+    const SUPABASE_PUBLISHABLE_KEY =
       process.env.SUPABASE_PUBLISHABLE_KEY ||
       process.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
-      process.env.VITE_SUPABASE_ANON_KEY ||
-      "sb_publishable_srgqLn2ZvysGKh47yCQ0Kg_IW02yjDf";
+      process.env.VITE_SUPABASE_ANON_KEY;
 
-    if (
-      !SUPABASE_PUBLISHABLE_KEY ||
-      SUPABASE_PUBLISHABLE_KEY.startsWith("http://") ||
-      SUPABASE_PUBLISHABLE_KEY.startsWith("https://")
-    ) {
-      SUPABASE_PUBLISHABLE_KEY = "sb_publishable_srgqLn2ZvysGKh47yCQ0Kg_IW02yjDf";
+    if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY ||
+        SUPABASE_PUBLISHABLE_KEY.startsWith("sb_secret_")) {
+      throw new Error("Supabase auth middleware is disabled until a new Al-mokhtar project is explicitly configured.");
     }
 
     const request = getRequest();

@@ -56,8 +56,8 @@ class GitHubUpdateService {
           // Automatically migrate old default to new repo
           if (
             !repo ||
-            repo === "mahmoudhindam9/Restocash" ||
-            repo === "mahmoudhindam9-stack/jupa-se"
+            repo === "mahmoudhindam9-stack/Al-mokhtar" ||
+            repo === "mahmoudhindam9-stack/Al-mokhtar"
           ) {
             repo = DEFAULT_GITHUB_REPO;
           }

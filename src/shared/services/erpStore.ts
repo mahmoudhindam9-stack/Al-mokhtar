@@ -991,26 +991,8 @@ const DEFAULT_USERS: SystemUser[] = [
     full_name: "مدير النظام (Super Admin)",
     username: "admin",
     password: "123456",
-    phone: "01000000000",
+    phone: "",
     role: "admin",
-    created_at: new Date().toISOString(),
-  },
-  {
-    id: "u-manager",
-    full_name: "مشرف الفرع",
-    username: "manager",
-    password: "123456",
-    phone: "01000000001",
-    role: "manager",
-    created_at: new Date().toISOString(),
-  },
-  {
-    id: "u-cashier",
-    full_name: "كاشير الصالة",
-    username: "cashier",
-    password: "123456",
-    phone: "01000000002",
-    role: "cashier",
     created_at: new Date().toISOString(),
   },
 ];
@@ -1297,6 +1279,9 @@ export class ERPStore {
   loadState() {
     if (typeof window === "undefined" || typeof localStorage === "undefined")
       return this.getDefaultState();
+    // One-time cleanup of old demo accounts; financial and operational data is preserved.
+    const resetDemoUsers = localStorage.getItem("almokhtar_auth_migration_v1") !== "done";
+    if (resetDemoUsers) localStorage.setItem("almokhtar_auth_migration_v1", "done");
     const raw = localStorage.getItem("erp_store_state");
     if (raw)
       try {
@@ -1487,9 +1472,9 @@ export class ERPStore {
             branch_id: "branch-1",
           })),
           reconciliations: loadedReconciliations,
-          userPermissions: parsed.userPermissions || DEFAULT_PERMISSIONS,
+          userPermissions: resetDemoUsers ? DEFAULT_PERMISSIONS : parsed.userPermissions || DEFAULT_PERMISSIONS,
           currentUser: parsed.currentUser || "admin",
-          users: parsed.users || DEFAULT_USERS,
+          users: resetDemoUsers ? DEFAULT_USERS : (parsed.users || DEFAULT_USERS),
           fiscalYearStatus: parsed.fiscalYearStatus || "open",
           inventorySettings: parsed.inventorySettings || {
             allowNegativeStock: true,

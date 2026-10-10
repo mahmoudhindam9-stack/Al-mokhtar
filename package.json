@@ -16,7 +16,10 @@
     "verify:journal": "node scripts/verify-journal-numbering-and-account-report.cjs",
     "verify:cleanup": "node scripts/verify-cleanup.cjs",
     "format": "prettier --write .",
-    "test": "vitest"
+    "test": "vitest",
+    "start:local": "vite --host 127.0.0.1 --port 3000 --strictPort",
+    "build:vercel": "vite build --config vite.vercel.config.ts",
+    "deploy:vercel": "vercel --prod"
   },
   "dependencies": {
     "@google/genai": "^2.21.0",

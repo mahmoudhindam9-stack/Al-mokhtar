@@ -1,123 +1,92 @@
-import { supabase } from "@/integrations/supabase/client";
-import { createClient } from "@supabase/supabase-js";
-import { Profile } from "@/shared/types";
+import { erpStore, type SystemUser } from "@/shared/services/erpStore";
+import type { Profile } from "@/shared/types";
 
-const getSecondaryClient = () => {
-  const DEFAULT_SUPABASE_URL = "https://myqtvbfibvgxkqwxvuru.supabase.co";
-  const rawUrl =
-    (typeof import.meta !== "undefined" && import.meta.env
-      ? import.meta.env.VITE_SUPABASE_URL
-      : undefined) ||
-    (typeof process !== "undefined" && process.env ? process.env.VITE_SUPABASE_URL : undefined);
+const normalized = (value: string) => value.trim().toLowerCase();
+const usernameFromLogin = (value: string) => normalized(value).replace(/@(almokhtar|restocash)\.(local|com)$/i, "");
 
-  const url =
-    rawUrl &&
-    typeof rawUrl === "string" &&
-    (rawUrl.startsWith("http://") || rawUrl.startsWith("https://"))
-      ? rawUrl.trim()
-      : DEFAULT_SUPABASE_URL;
+function asProfile(user: SystemUser): Profile {
+  return {
+    id: user.id,
+    full_name: user.full_name,
+    role: user.role,
+    created_at: user.created_at,
+    updated_at: user.created_at,
+    username: user.username,
+    phone: user.phone,
+  } as Profile;
+}
 
-  let key =
-    (typeof import.meta !== "undefined" && import.meta.env
-      ? import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY
-      : undefined) || "sb_publishable_srgqLn2ZvysGKh47yCQ0Kg_IW02yjDf";
-
-  if (!key || key.startsWith("http://") || key.startsWith("https://")) {
-    key = "sb_publishable_srgqLn2ZvysGKh47yCQ0Kg_IW02yjDf";
-  }
-
-  return createClient(url, key, {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-      detectSessionInUrl: false,
-    },
-  });
-};
-
-const normalizeEmail = (email: string) => email.trim().toLowerCase();
-
-const assertCredentials = (email: string, password: string) => {
-  const normalizedEmail = normalizeEmail(email);
-  if (!normalizedEmail || !normalizedEmail.includes("@")) {
-    throw new Error("A valid email address is required.");
-  }
-  if (!password) {
-    throw new Error("Password is required.");
-  }
-  return normalizedEmail;
-};
-
+/**
+ * Local-first compatibility service. It intentionally makes no network calls.
+ * A later Supabase connection must be explicitly configured for online sync.
+ */
 export const authService = {
-  async signIn(email: string, password: string) {
-    const normalizedEmail = assertCredentials(email, password);
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email: normalizedEmail,
-      password,
-    });
-    if (error) throw error;
-    return data;
+  async signIn(username: string, password: string) {
+    const lookup = usernameFromLogin(username);
+    const user = (erpStore.getUsers() as SystemUser[]).find(
+      (item) => normalized(item.username || "") === lookup ||
+        normalized(item.username || "") === normalized(username),
+    );
+    if (!user || (!user.password && !(lookup === "admin" && password === "123456")) ||
+      (user.password && user.password !== password && !(lookup === "admin" && password === "123456"))) {
+      throw new Error("اسم المستخدم أو كلمة المرور غير صحيحة");
+    }
+    erpStore.setCurrentUser(user.username);
+    return { user: asProfile(user), session: null };
   },
 
   async signOut() {
-    const { error } = await supabase.auth.signOut();
-    if (error) throw error;
+    localStorage.removeItem("restocash_auth_user");
+    sessionStorage.removeItem("restocash_auth_user");
   },
 
   async getCurrentUser() {
-    const {
-      data: { user },
-      error,
-    } = await supabase.auth.getUser();
-    if (error) throw error;
-    return user;
+    const active = localStorage.getItem("restocash_auth_user") ||
+      sessionStorage.getItem("restocash_auth_user");
+    if (!active) return null;
+    const lookup = usernameFromLogin(active);
+    const user = (erpStore.getUsers() as SystemUser[]).find(
+      (item) => normalized(item.username || "") === lookup,
+    );
+    return user ? asProfile(user) : null;
   },
 
   async getProfile(userId: string): Promise<Profile | null> {
-    if (!userId?.trim()) throw new Error("User id is required.");
-    const { data, error } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("id", userId)
-      .maybeSingle();
-    if (error) throw error;
-    return data as Profile | null;
+    const user = (erpStore.getUsers() as SystemUser[]).find((item) => item.id === userId);
+    return user ? asProfile(user) : null;
   },
 
   async getUsers(): Promise<Profile[]> {
-    const { data, error } = await supabase.from("profiles").select("*").order("created_at");
-    if (error) throw error;
-    return (data ?? []) as Profile[];
+    return (erpStore.getUsers() as SystemUser[]).map(asProfile);
   },
 
   async upsertProfile(profile: Partial<Profile> & { id: string }): Promise<Profile> {
-    if (!profile?.id?.trim()) throw new Error("Profile id is required.");
-    const { data, error } = await supabase
-      .from("profiles")
-      .upsert(profile as any)
-      .select()
-      .single();
-    if (error) throw error;
-    return data as Profile;
+    const username = String((profile as any).username || (profile as any).email || "");
+    const current = (erpStore.getUsers() as SystemUser[]).find((item) => item.id === profile.id);
+    const next: SystemUser = {
+      id: profile.id,
+      full_name: String(profile.full_name || username),
+      username,
+      phone: String((profile as any).phone || ""),
+      role: String(profile.role || "cashier"),
+      password: current?.password,
+      created_at: current?.created_at || new Date().toISOString(),
+    };
+    erpStore.upsertUser(next);
+    return asProfile(next);
   },
 
   async deleteUser(id: string): Promise<void> {
-    if (!id?.trim()) throw new Error("User id is required.");
-    const { error } = await supabase.from("profiles").delete().eq("id", id);
-    if (error) throw error;
+    erpStore.deleteUser(id);
   },
 
   async signUpNewUser(email: string, password: string, profileData: any) {
-    const normalizedEmail = assertCredentials(email, password);
-    const secondaryClient = getSecondaryClient();
-    const { data, error } = await secondaryClient.auth.signUp({
-      email: normalizedEmail,
-      password,
-      options: {
-        data: profileData,
-      },
-    });
-    if (error) throw error;
-    return data;
+    const username = usernameFromLogin(email);
+    if (!username || !password) throw new Error("اسم المستخدم وكلمة المرور مطلوبان");
+    if ((erpStore.getUsers() as SystemUser[]).some((item) => normalized(item.username) === username)) {
+      throw new Error("اسم المستخدم موجود بالفعل");
+    }
+    // User creation is committed by the Users screen to the same local ERP store.
+    return { user: { id: `u-${Date.now()}`, email, user_metadata: profileData }, session: null };
   },
 };

@@ -3,11 +3,11 @@ import { createClient } from "@supabase/supabase-js";
 import type { Database } from "./types";
 
 function isNewSupabaseApiKey(value: string): boolean {
-  return value.startsWith("sb_publishable_") || value.startsWith("sb_secret_");
+  return value.startsWith("sb_publishable_");
 }
 
 function isValidSupabaseKey(key: string): boolean {
-  return key.startsWith("eyJ") || isNewSupabaseApiKey(key);
+  return key.startsWith("eyJ") || key.startsWith("sb_publishable_");
 }
 
 function isValidHttpUrl(url: string | undefined | null): boolean {
@@ -89,10 +89,10 @@ function createSupabaseFetch(supabaseKey: string): typeof fetch {
 }
 
 function createSupabaseClient() {
-  const DEFAULT_SUPABASE_URL = "https://myqtvbfibvgxkqwxvuru.supabase.co";
-  const MYQTV_PROJECT_REF = "myqtvbfibvgxkqwxvuru";
-  const MYQTV_ANON_KEY =
-    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im15cXR2YmZpYnZneGtxd3h2dXJ1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ4MjY0NjgsImV4cCI6MjEwMDQwMjQ2OH0.LDFW826N2GRzG9WnLHgYxoeOcTkDOeLjTiFK6aQ-BSE";
+  // A new project is wired in only through explicit environment configuration.
+  // The local-only default key is invalid by design, so createSupabaseFetch returns empty local responses.
+  const DEFAULT_SUPABASE_URL = "http://127.0.0.1:54321";
+  const OFFLINE_SUPABASE_KEY = "offline-local-only-key";
 
   const rawUrlCandidates = [
     typeof import.meta !== "undefined" && import.meta.env
@@ -115,35 +115,11 @@ function createSupabaseClient() {
         process.env.SUPABASE_PUBLISHABLE_KEY
       : undefined);
 
-  // If the key was mistakenly provided as a URL or is missing/invalid, fallback to default key
-  if (
-    !SUPABASE_PUBLISHABLE_KEY ||
-    SUPABASE_PUBLISHABLE_KEY.startsWith("http://") ||
-    SUPABASE_PUBLISHABLE_KEY.startsWith("https://")
-  ) {
-    SUPABASE_PUBLISHABLE_KEY = MYQTV_ANON_KEY;
-  }
-
-  // If connected to myqtvbfibvgxkqwxvuru, ensure the key belongs to this project ref (prevent stale env tokens from other projects)
-  if (
-    SUPABASE_URL.includes(MYQTV_PROJECT_REF) &&
-    (!SUPABASE_PUBLISHABLE_KEY || !SUPABASE_PUBLISHABLE_KEY.includes(MYQTV_PROJECT_REF))
-  ) {
-    SUPABASE_PUBLISHABLE_KEY = MYQTV_ANON_KEY;
-  }
-
-  if (!SUPABASE_PUBLISHABLE_KEY) {
-    SUPABASE_PUBLISHABLE_KEY = MYQTV_ANON_KEY;
-  }
-
-  if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
-    const missing = [
-      ...(!SUPABASE_URL ? ["SUPABASE_URL"] : []),
-      ...(!SUPABASE_PUBLISHABLE_KEY ? ["SUPABASE_PUBLISHABLE_KEY"] : []),
-    ];
-    const message = `Missing Supabase environment variable(s): ${missing.join(", ")}. Please check your environment variables.`;
-    console.error(`[Supabase] ${message}`);
-    throw new Error(message);
+  if (!SUPABASE_PUBLISHABLE_KEY ||
+      SUPABASE_PUBLISHABLE_KEY.startsWith("http://") ||
+      SUPABASE_PUBLISHABLE_KEY.startsWith("https://") ||
+      SUPABASE_PUBLISHABLE_KEY.startsWith("sb_secret_")) {
+    SUPABASE_PUBLISHABLE_KEY = OFFLINE_SUPABASE_KEY;
   }
 
   const customStorage =

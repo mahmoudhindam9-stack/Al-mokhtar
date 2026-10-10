@@ -1,19 +1,5 @@
 {
-  "buildCommand": "npm run build",
-  "outputDirectory": "dist",
-  "framework": "vite",
-  "build": {
-    "env": {
-      "DANGEROUSLY_DEPLOY_VULNERABLE_TANSTACK_START_XSS": "1"
-    }
-  },
-  "env": {
-    "DANGEROUSLY_DEPLOY_VULNERABLE_TANSTACK_START_XSS": "1"
-  },
-  "rewrites": [
-    {
-      "source": "/(.*)",
-      "destination": "/index.html"
-    }
-  ]
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "tanstack-start",
+  "buildCommand": "npm install --no-save nitro@3.0.260903-beta && npm run build:vercel"
 }
