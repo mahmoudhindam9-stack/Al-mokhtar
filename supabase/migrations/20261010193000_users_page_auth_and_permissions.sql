@@ -39,6 +39,51 @@ WHERE ranked.id = p.id
     ELSE ranked.base_username || '_' || right(replace(ranked.id::text, '-', ''), 6)
   END);
 
+-- Populate conservative role defaults for existing profiles that predate the central ACL.
+-- Explicitly configured permission JSON is never overwritten.
+UPDATE public.profiles
+SET permissions = CASE
+  WHEN role IN ('admin', 'super_admin') THEN jsonb_build_object(
+    'orders', true, 'pos', true, 'captain', true, 'kitchen', true, 'delivery', true,
+    'inventory', true, 'hr', true, 'purchasing', true, 'production', true,
+    'treasury', true, 'accounting', true, 'journal_approval', true,
+    'expense_approval', true, 'revenue_approval', true, 'reports', true,
+    'cost_centers', true, 'branch_mgmt', true, 'audit_logs', true, 'users_roles', true,
+    'super_admin_full_access', true, 'system_manage_users', true, 'system_backup_update', true,
+    'maintenance_view', true, 'maintenance_manage_requests', true, 'maintenance_manage_preventive', true,
+    'maintenance_manage_custody', true, 'maintenance_post_finance', true, 'maintenance_manage_buildings', true,
+    'maintenance_export_reports', true, 'mall_manage_shops', true, 'mall_garden_finance', true,
+    'reports_view_sales', true, 'reports_view_financials', true
+  )
+  WHEN role = 'manager' THEN jsonb_build_object(
+    'orders', true, 'pos', true, 'captain', true, 'kitchen', true, 'delivery', true,
+    'inventory', true, 'hr', true, 'purchasing', true, 'production', true,
+    'treasury', false, 'accounting', true, 'journal_approval', false,
+    'expense_approval', true, 'revenue_approval', true, 'reports', true,
+    'cost_centers', true, 'branch_mgmt', false, 'audit_logs', false, 'users_roles', false,
+    'system_manage_users', false, 'system_backup_update', false,
+    'maintenance_view', true, 'maintenance_manage_requests', true, 'mall_manage_shops', true,
+    'reports_view_sales', true, 'reports_view_financials', true
+  )
+  WHEN role = 'cashier' THEN jsonb_build_object(
+    'orders', true, 'pos', true, 'captain', true, 'kitchen', true, 'delivery', true,
+    'inventory', false, 'hr', false, 'purchasing', false, 'production', false,
+    'treasury', false, 'accounting', false, 'expense_approval', false,
+    'revenue_approval', false, 'reports', false, 'users_roles', false,
+    'system_manage_users', false, 'system_backup_update', false
+  )
+  WHEN role = 'captain' THEN jsonb_build_object(
+    'orders', true, 'pos', false, 'captain', true, 'kitchen', false, 'delivery', false,
+    'inventory', false, 'hr', false, 'accounting', false, 'reports', false, 'users_roles', false
+  )
+  WHEN role = 'kitchen' THEN jsonb_build_object(
+    'orders', false, 'pos', false, 'captain', false, 'kitchen', true, 'delivery', false,
+    'inventory', false, 'hr', false, 'accounting', false, 'reports', false, 'users_roles', false
+  )
+  ELSE '{}'::jsonb
+END
+WHERE permissions IS NULL OR permissions = '{}'::jsonb;
+
 CREATE UNIQUE INDEX IF NOT EXISTS profiles_username_lower_uidx
   ON public.profiles (lower(username))
   WHERE username IS NOT NULL AND trim(username) <> '';
