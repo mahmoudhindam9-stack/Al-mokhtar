@@ -784,12 +784,33 @@ function UsersPage() {
     }
   };
 
-  const deleteUser = () => {
-    if (userToDelete) {
-      erpStore.deleteUser(userToDelete);
+  const deleteUser = async () => {
+    if (!userToDelete) return;
+    try {
+      if (isHostedDeployment()) {
+        // Removing the profile disables app access even if the Supabase identity remains.
+        await authService.deleteUser(userToDelete);
+        erpStore.deleteUser(userToDelete);
+        setLocalUsers((await authService.getUsers()).map(profileToSystemUser));
+        toast({
+          title: "تم إلغاء وصول المستخدم",
+          description: "حُذف الحساب من قائمة المختارين والصلاحيات. لا يستطيع دخول المختار بدون ملف مستخدم نشط.",
+        });
+      } else {
+        erpStore.deleteUser(userToDelete);
+        setLocalUsers(erpStore.getUsers());
+        toast({ title: "تم حذف المستخدم المحلي" });
+      }
+    } catch (error: any) {
+      toast({
+        title: "تعذر حذف المستخدم",
+        description: error?.message || "راجع صلاحية إدارة المستخدمين ثم حاول مرة أخرى.",
+        variant: "destructive",
+      });
+    } finally {
+      setUserToDelete(null);
+      setIsConfirmDeleteOpen(false);
     }
-    setUserToDelete(null);
-    setIsConfirmDeleteOpen(false);
   };
 
   const startEdit = (p: SystemUser) => {
@@ -808,18 +829,51 @@ function UsersPage() {
 
   const openPermissionsForUser = (user: SystemUser) => {
     setPermissionsUser(user);
-    const currentPerms = erpState.userPermissions[user.username] || {};
+    const currentPerms =
+      user.permissions ||
+      erpState.userPermissions[user.username] ||
+      erpState.userPermissions[user.role] ||
+      {};
     setEditedPermissions({ ...currentPerms });
   };
 
-  const handleSavePermissions = () => {
-    if (permissionsUser && editedPermissions) {
-      erpStore.updateUserPermission(permissionsUser.username, editedPermissions);
+  const handleSavePermissions = async () => {
+    if (!permissionsUser || !editedPermissions) return;
+    try {
+      if (isHostedDeployment()) {
+        const saved = await authService.upsertProfile({
+          id: permissionsUser.id,
+          username: permissionsUser.username,
+          full_name: permissionsUser.full_name,
+          phone: permissionsUser.phone,
+          role: permissionsUser.role,
+          permissions: editedPermissions,
+          updated_at: new Date().toISOString(),
+        });
+        erpStore.updateUserPermission(permissionsUser.username, editedPermissions);
+        erpStore.upsertUser(profileToSystemUser(saved));
+        setLocalUsers((await authService.getUsers()).map(profileToSystemUser));
+      } else {
+        erpStore.updateUserPermission(permissionsUser.username, editedPermissions);
+        setLocalUsers(erpStore.getUsers());
+      }
       setErpState(erpStore.getState());
+      setIsConfirmSavePermsOpen(false);
+      setPermissionsUser(null);
+      setEditedPermissions(null);
+      toast({
+        title: "تم حفظ الصلاحيات",
+        description: isHostedDeployment()
+          ? "تم حفظ صلاحيات المستخدم في قاعدة البيانات المشتركة، وستُستخدم عند تسجيل دخوله."
+          : "تم حفظ صلاحيات المستخدم على هذا الجهاز.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "تعذر حفظ الصلاحيات",
+        description: error?.message || "لم يتم حفظ التغييرات؛ تحقق من صلاحية إدارة المستخدمين.",
+        variant: "destructive",
+      });
     }
-    setIsConfirmSavePermsOpen(false);
-    setPermissionsUser(null);
-    setEditedPermissions(null);
   };
 
   const togglePermission = (key: keyof UserPermission) => {
