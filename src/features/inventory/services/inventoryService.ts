@@ -121,7 +121,22 @@ export const inventoryService = {
       const { data, error } = await query;
       if (error) throw error;
       if (data && data.length > 0) {
-        return data as WarehouseInventory[];
+        const remoteRows = data as WarehouseInventory[];
+        const maintenanceIds = (await this.getWarehouses())
+          .filter((warehouse) => warehouse.name.trim() === "مخزن الصيانة")
+          .map((warehouse) => warehouse.id);
+        const localMaintenanceRows = localWarehouseStore
+          .getWarehouseInventory()
+          .filter((row) => maintenanceIds.includes(row.warehouse_id));
+        const merged = [...remoteRows];
+        for (const localRow of localMaintenanceRows) {
+          const index = merged.findIndex(
+            (row) => row.warehouse_id === localRow.warehouse_id && row.inventory_id === localRow.inventory_id,
+          );
+          if (index === -1) merged.push(localRow);
+          else merged[index] = { ...merged[index], quantity: localRow.quantity, min_level: localRow.min_level, updated_at: localRow.updated_at };
+        }
+        return warehouseId ? merged.filter((row) => row.warehouse_id === warehouseId) : merged;
       }
     } catch {
       // Fallback
@@ -216,7 +231,17 @@ export const inventoryService = {
         query = query.eq("warehouse_id" as any, warehouseId);
       }
       const { data, error } = await query.order("created_at", { ascending: false });
-      if (!error && data) return data as unknown as InventoryTransaction[];
+      if (!error && data) {
+        const remoteRows = data as unknown as InventoryTransaction[];
+        const maintenanceIds = (await this.getWarehouses())
+          .filter((warehouse) => warehouse.name.trim() === "مخزن الصيانة")
+          .map((warehouse) => warehouse.id);
+        const localRows = localWarehouseStore.getTransactions(warehouseId)
+          .filter((row) => maintenanceIds.includes(row.warehouse_id || ""));
+        const seen = new Set(remoteRows.map((row) => row.id));
+        return [...remoteRows, ...localRows.filter((row) => !seen.has(row.id))]
+          .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      }
     } catch {
       // Fallback
     }
@@ -264,6 +289,13 @@ export const inventoryService = {
             },
             { onConflict: "warehouse_id,inventory_id" },
           );
+          // Mirror the item and its per-warehouse quantity locally for offline use.
+          localWarehouseStore.upsertInventoryItem(payload, item.id, targetWhId);
+        } else {
+          localWarehouseStore.saveInventory([
+            ...localWarehouseStore.getInventory().filter((entry) => entry.id !== item!.id),
+            item,
+          ]);
         }
         return item;
       }
