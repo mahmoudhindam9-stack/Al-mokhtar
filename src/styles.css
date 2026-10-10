@@ -274,3 +274,11 @@
 @keyframes al-mokhtar-splash-in{from{opacity:0}to{opacity:1}}
 @keyframes al-mokhtar-splash-pulse{from{transform:scale(.97);opacity:.55}to{transform:scale(1.02);opacity:1}}
 @media(prefers-reduced-motion:reduce){.al-mokhtar-splash,.al-mokhtar-splash-glow{animation:none}}
+
+/* Print-only identity block shared by policy and financial reports */
+.print-brand-header{display:none;align-items:center;justify-content:center;gap:12px;padding:0 0 10px;margin:0 0 14px;border-bottom:2px solid #c7a04b;color:#102b45;font-family:Tahoma,Arial,sans-serif}
+.print-brand-header img{width:58px;height:58px;object-fit:contain}
+.print-brand-header div{display:flex;flex-direction:column;gap:3px}
+.print-brand-header strong{font-size:20px;font-weight:900}
+.print-brand-header span{font-size:11px;color:#9a742c}
+@media print{.print-brand-header{display:flex!important;break-inside:avoid;print-color-adjust:exact;-webkit-print-color-adjust:exact}}
