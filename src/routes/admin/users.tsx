@@ -61,6 +61,18 @@ function isHostedDeployment(): boolean {
   return !["localhost", "127.0.0.1", "::1", "[::1]"].includes(host) && !host.endsWith(".localhost");
 }
 
+function profileToSystemUser(profile: any): SystemUser {
+  return {
+    id: profile.id,
+    full_name: profile.full_name || profile.username || "",
+    username: profile.username || String(profile.email || "").split("@")[0],
+    phone: profile.phone || "",
+    role: profile.role || "cashier",
+    permissions: (profile.permissions || {}) as UserPermission,
+    created_at: profile.created_at || new Date().toISOString(),
+  };
+}
+
 interface PermissionItem {
   key: keyof UserPermission;
   name: string;
@@ -591,78 +603,185 @@ function UsersPage() {
   };
 
   useEffect(() => {
-    const unsub = erpStore.subscribe(() => {
-      setLocalUsers(erpStore.getUsers());
+    let mounted = true;
+    const hosted = isHostedDeployment();
+    const refreshLocalState = () => {
+      if (!mounted) return;
       setErpState(erpStore.getState());
-    });
-    return unsub;
+      if (!hosted) setLocalUsers(erpStore.getUsers());
+    };
+    const unsubscribe = erpStore.subscribe(refreshLocalState);
+
+    if (hosted) {
+      authService.getUsers()
+        .then((profiles) => {
+          if (!mounted) return;
+          setLocalUsers(profiles.map(profileToSystemUser));
+        })
+        .catch((error) => {
+          console.error("Failed to load the shared hosted user list.", error);
+          if (mounted) {
+            toast({
+              title: "تعذر تحميل المستخدمين من قاعدة البيانات",
+              description: "تأكد من أنك تملك صلاحية إدارة المستخدمين وأن ترحيل الصلاحيات تم تطبيقه.",
+              variant: "destructive",
+            });
+          }
+        });
+    } else {
+      setLocalUsers(erpStore.getUsers());
+    }
+
+    return () => {
+      mounted = false;
+      unsubscribe();
+    };
   }, []);
 
   const upsert = async () => {
-    const emailToUse = form.username.includes("@")
-      ? form.username.trim().toLowerCase()
-      : `${form.username.trim()}@restocash.local`;
+    const username = form.username.trim();
+    const normalizedUsername = username.toLowerCase();
+    const emailToUse = username.includes("@")
+      ? normalizedUsername
+      : `${normalizedUsername}@restocash.local`;
     const hosted = isHostedDeployment();
 
-    if (editing) {
-      // On hosted deployments, never store a cloud password in browser-local ERP data.
-      erpStore.upsertUser({
-        ...editing,
-        full_name: form.full_name,
-        username: form.username,
-        phone: form.phone,
-        role: form.role,
-        ...(form.password && !hosted ? { password: form.password } : {}),
-      });
-      setEditing(null);
-      setForm({ full_name: "", username: "", phone: "", password: "", role: "cashier" });
-      setIsConfirmUpsertOpen(false);
-      toast({ title: "تم تحديث بيانات المستخدم", description: "تم حفظ بيانات المستخدم محليًا." });
-      return;
-    }
-
-    let cloudAccountCreated = false;
-    let cloudAccountError = "";
     try {
-      await authService.signUpNewUser(emailToUse, form.password, {
-        full_name: form.full_name,
-        phone: form.phone,
-        role: form.role,
-      });
-      cloudAccountCreated = true;
-    } catch (err: any) {
-      cloudAccountError = err?.message || "تعذر إنشاء حساب Supabase.";
       if (hosted) {
-        toast({
-          title: "تعذر إنشاء حساب المستخدم",
-          description: cloudAccountError,
-          variant: "destructive",
+        const profiles = await authService.getUsers();
+
+        if (editing) {
+          if (form.password.trim()) {
+            toast({
+              title: "تغيير كلمة المرور غير متاح من شاشة التعديل",
+              description: "كلمة مرور حساب الإنترنت لا تُحفظ في بيانات البرنامج. عدّل الاسم والدور والصلاحيات واترك حقل كلمة المرور فارغًا.",
+              variant: "destructive",
+            });
+            return;
+          }
+
+          const currentProfile = profiles.find((profile: any) => profile.id === editing.id)
+            || profiles.find((profile: any) => String(profile.username || "").toLowerCase() === editing.username.toLowerCase());
+          if (!currentProfile) {
+            throw new Error("الحساب غير موجود في قائمة المستخدمين المشتركة.");
+          }
+          const permissions = editing.permissions
+            || currentProfile.permissions
+            || erpState.userPermissions[editing.username]
+            || erpState.userPermissions[form.role]
+            || {};
+          const updatedProfile = await authService.upsertProfile({
+            id: currentProfile.id,
+            username: normalizedUsername,
+            full_name: form.full_name.trim(),
+            phone: form.phone.trim(),
+            role: form.role,
+            permissions,
+            updated_at: new Date().toISOString(),
+          });
+          erpStore.upsertUser(profileToSystemUser(updatedProfile));
+          setLocalUsers((await authService.getUsers()).map(profileToSystemUser));
+          setEditing(null);
+          setForm({ full_name: "", username: "", phone: "", password: "", role: "cashier" });
+          setIsConfirmUpsertOpen(false);
+          toast({ title: "تم تحديث المستخدم وصلاحيات حسابه المشتركة" });
+          return;
+        }
+
+        if (profiles.some((profile: any) => String(profile.username || "").toLowerCase() === normalizedUsername)) {
+          throw new Error("اسم المستخدم موجود بالفعل. اختر اسم دخول مختلفًا.");
+        }
+
+        const created = await authService.signUpNewUser(emailToUse, form.password, {
+          username: normalizedUsername,
+          full_name: form.full_name.trim(),
+          phone: form.phone.trim(),
+          role: form.role,
         });
+        const authUserId = created?.user?.id;
+        if (!authUserId) {
+          throw new Error("تم إرسال طلب إنشاء الحساب لكن لم يرجع Supabase معرّف المستخدم. راجع إعدادات تأكيد البريد الإلكتروني.");
+        }
+
+        const defaultPermissions = erpState.userPermissions[form.role] || {};
+        const createdProfile = await authService.upsertProfile({
+          id: authUserId,
+          username: normalizedUsername,
+          full_name: form.full_name.trim(),
+          phone: form.phone.trim(),
+          role: form.role,
+          permissions: defaultPermissions,
+        });
+        erpStore.updateUserPermission(normalizedUsername, defaultPermissions);
+        erpStore.upsertUser(profileToSystemUser(createdProfile));
+        setLocalUsers((await authService.getUsers()).map(profileToSystemUser));
+        setForm({ full_name: "", username: "", phone: "", password: "", role: "cashier" });
         setIsConfirmUpsertOpen(false);
+        toast({
+          title: "تم إنشاء حساب الإنترنت",
+          description: "تم تسجيل الحساب في قائمة المستخدمين المشتركة وحفظ صلاحيات دوره. راجع الصلاحيات التفصيلية قبل تسليم بيانات الدخول.",
+        });
         return;
       }
-      // Local/offline installations must still be able to create a local ERP account.
-      console.warn("Cloud sign-up unavailable; creating a local Al-Mokhtar user.", err);
+
+      if (editing) {
+        erpStore.upsertUser({
+          ...editing,
+          full_name: form.full_name,
+          username,
+          phone: form.phone,
+          role: form.role,
+          ...(form.password ? { password: form.password } : {}),
+        });
+        setEditing(null);
+        setForm({ full_name: "", username: "", phone: "", password: "", role: "cashier" });
+        setIsConfirmUpsertOpen(false);
+        toast({ title: "تم تحديث بيانات المستخدم محليًا" });
+        return;
+      }
+
+      let cloudAccountError = "";
+      try {
+        await authService.signUpNewUser(emailToUse, form.password, {
+          username: normalizedUsername,
+          full_name: form.full_name,
+          phone: form.phone,
+          role: form.role,
+        });
+      } catch (error: any) {
+        cloudAccountError = error?.message || "تعذر إنشاء حساب Supabase.";
+        console.warn("Cloud sign-up unavailable; creating a local Al-Mokhtar user.", error);
+      }
+
+      const defaultPermissions = erpState.userPermissions[form.role] || {};
+      const localUser: SystemUser = {
+        id: `u-${Date.now()}`,
+        full_name: form.full_name,
+        username,
+        phone: form.phone,
+        role: form.role,
+        password: form.password,
+        permissions: defaultPermissions,
+        created_at: new Date().toISOString(),
+      };
+      erpStore.upsertUser(localUser);
+      erpStore.updateUserPermission(username, defaultPermissions);
+      setLocalUsers(erpStore.getUsers());
+      setForm({ full_name: "", username: "", phone: "", password: "", role: "cashier" });
+      setIsConfirmUpsertOpen(false);
+      toast({
+        title: "تم إنشاء المستخدم المحلي",
+        description: cloudAccountError
+          ? `الحساب محلي فقط؛ تعذر إنشاء حساب الإنترنت: ${cloudAccountError}`
+          : "تم حفظ المستخدم على هذا الجهاز.",
+      });
+    } catch (error: any) {
+      toast({
+        title: editing ? "تعذر تحديث المستخدم" : "تعذر إنشاء المستخدم",
+        description: error?.message || "حدث خطأ أثناء حفظ حساب المستخدم وصلاحياته.",
+        variant: "destructive",
+      });
     }
-
-    erpStore.upsertUser({
-      id: `u-${Date.now()}`,
-      full_name: form.full_name,
-      username: form.username,
-      phone: form.phone,
-      role: form.role,
-      ...(hosted ? {} : { password: form.password }),
-      created_at: new Date().toISOString(),
-    });
-
-    setForm({ full_name: "", username: "", phone: "", password: "", role: "cashier" });
-    setIsConfirmUpsertOpen(false);
-    toast({
-      title: "تم إنشاء المستخدم بنجاح",
-      description: hosted || cloudAccountCreated
-        ? "تم حفظ بيانات المستخدم وإنشاء حساب المصادقة."
-        : `تم إنشاء الحساب المحلي. حساب الإنترنت لم يُنشأ: ${cloudAccountError}`,
-    });
   };
 
   const deleteUser = () => {
