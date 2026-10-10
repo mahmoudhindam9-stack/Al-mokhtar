@@ -14,6 +14,7 @@ import { Route as AdminRouteImport } from './routes/admin'
 import { Route as ComponentsRouteImport } from './routes/components'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as SetupRouteImport } from './routes/setup'
+import { Route as MaintenanceRequestRouteImport } from './routes/maintenance-request'
 import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as AdminAccountsRouteImport } from './routes/admin/accounts'
 import { Route as AdminHrRouteImport } from './routes/admin/hr'
@@ -49,6 +50,11 @@ const LoginRoute = LoginRouteImport.update({
 const SetupRoute = SetupRouteImport.update({
   id: '/setup',
   path: '/setup',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MaintenanceRequestRoute = MaintenanceRequestRouteImport.update({
+  id: '/maintenance-request',
+  path: '/maintenance-request',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminIndexRoute = AdminIndexRouteImport.update({
@@ -113,6 +119,7 @@ export interface FileRoutesByFullPath {
   '/components': typeof ComponentsRoute
   '/login': typeof LoginRoute
   '/setup': typeof SetupRoute
+  '/maintenance-request': typeof MaintenanceRequestRoute
   '/admin/accounts': typeof AdminAccountsRoute
   '/admin/hr': typeof AdminHrRoute
   '/admin/inventory': typeof AdminInventoryRoute
@@ -130,6 +137,7 @@ export interface FileRoutesByTo {
   '/components': typeof ComponentsRoute
   '/login': typeof LoginRoute
   '/setup': typeof SetupRoute
+  '/maintenance-request': typeof MaintenanceRequestRoute
   '/admin/accounts': typeof AdminAccountsRoute
   '/admin/hr': typeof AdminHrRoute
   '/admin/inventory': typeof AdminInventoryRoute
@@ -149,6 +157,7 @@ export interface FileRoutesById {
   '/components': typeof ComponentsRoute
   '/login': typeof LoginRoute
   '/setup': typeof SetupRoute
+  '/maintenance-request': typeof MaintenanceRequestRoute
   '/admin/accounts': typeof AdminAccountsRoute
   '/admin/hr': typeof AdminHrRoute
   '/admin/inventory': typeof AdminInventoryRoute
@@ -169,6 +178,7 @@ export interface FileRouteTypes {
     | '/components'
     | '/login'
     | '/setup'
+    | '/maintenance-request'
     | '/admin/accounts'
     | '/admin/hr'
     | '/admin/inventory'
@@ -186,6 +196,7 @@ export interface FileRouteTypes {
     | '/components'
     | '/login'
     | '/setup'
+    | '/maintenance-request'
     | '/admin/accounts'
     | '/admin/hr'
     | '/admin/inventory'
@@ -204,6 +215,7 @@ export interface FileRouteTypes {
     | '/components'
     | '/login'
     | '/setup'
+    | '/maintenance-request'
     | '/admin/accounts'
     | '/admin/hr'
     | '/admin/inventory'
@@ -223,6 +235,7 @@ export interface RootRouteChildren {
   ComponentsRoute: typeof ComponentsRoute
   LoginRoute: typeof LoginRoute
   SetupRoute: typeof SetupRoute
+  MaintenanceRequestRoute: typeof MaintenanceRequestRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -260,6 +273,13 @@ declare module '@tanstack/react-router' {
       path: '/setup'
       fullPath: '/setup'
       preLoaderRoute: typeof SetupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/maintenance-request': {
+      id: '/maintenance-request'
+      path: '/maintenance-request'
+      fullPath: '/maintenance-request'
+      preLoaderRoute: typeof MaintenanceRequestRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin/': {
@@ -378,6 +398,7 @@ const rootRouteChildren: RootRouteChildren = {
   ComponentsRoute: ComponentsRoute,
   LoginRoute: LoginRoute,
   SetupRoute: SetupRoute,
+  MaintenanceRequestRoute: MaintenanceRequestRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
