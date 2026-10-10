@@ -1169,8 +1169,15 @@ export class ERPStore {
       }
 
       this.state.legacy_users_purged_2026_10_10 = true;
-      this.saveState();
-      this.saveToIDB(this.state);
+      // Persist the synchronous local state now, but let IndexedDB restore/merge first
+      // before writing there so we never overwrite newer valid accounts prematurely.
+      if (typeof window !== "undefined") {
+        try {
+          localStorage.setItem("erp_store_state", JSON.stringify(this.state));
+        } catch {
+          // The cleaned in-memory state still takes effect; the IndexedDB merge persists it.
+        }
+      }
     }
     if (!this.state.park_sales_hard_zero_reset_v4_2026_09_03) {
       this.state.parkShifts = [];
@@ -1736,7 +1743,7 @@ export class ERPStore {
       inventoryDocuments: [],
       reconciliations: [],
       userPermissions: DEFAULT_PERMISSIONS,
-      currentUser: "admin",
+      currentUser: "",
       users: [],
       fiscalYearStatus: "open",
       inventorySettings: {
