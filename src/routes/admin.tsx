@@ -43,7 +43,7 @@ const ROUTE_PERMISSION_KEYS: Record<string, string[]> = {
   ],
   "/admin/maintenance": [
     "maintenance_view", "maintenance_manage_requests", "maintenance_manage_preventive",
-    "maintenance_manage_custody", "maintenance_post_finance", "maintenance_manage_buildings",
+    "maintenance_manage_custody", "maintenance_manage_stock", "maintenance_post_finance", "maintenance_manage_buildings",
     "maintenance_export_reports",
   ],
   "/admin/mall": ["mall_manage_shops", "mall_garden_finance", "manage_park_shifts", "delete_park_shifts", "park_reports"],
