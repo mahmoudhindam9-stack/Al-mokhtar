@@ -93,7 +93,13 @@ export const WarehouseManagement: React.FC = () => {
   // Data Queries
   const warehousesQuery = useQuery({
     queryKey: ["admin", "warehouses"],
-    queryFn: () => inventoryService.getWarehouses(),
+    queryFn: async () => {
+      const current = await inventoryService.getWarehouses();
+      const maintenanceWarehouse = await inventoryService.ensureMaintenanceWarehouse();
+      return current.some((warehouse) =>
+        warehouse.id === maintenanceWarehouse.id || warehouse.name.trim() === "مخزن الصيانة",
+      ) ? current : [...current, maintenanceWarehouse];
+    },
   });
 
   const inventoryQuery = useQuery({
