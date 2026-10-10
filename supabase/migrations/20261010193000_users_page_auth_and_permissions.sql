@@ -150,9 +150,9 @@ AS $$
     FROM public.profiles p
     WHERE p.id = auth.uid()
       AND (
-        p.role IN ('admin', 'super_admin')
-        OR p.permissions ->> 'users_roles' = 'true'
+        p.permissions ->> 'users_roles' = 'true'
         OR p.permissions ->> 'system_manage_users' = 'true'
+        OR p.permissions ->> 'super_admin_full_access' = 'true'
       )
   );
 $$;
