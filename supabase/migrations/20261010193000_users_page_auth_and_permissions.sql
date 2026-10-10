@@ -122,46 +122,8 @@ CREATE UNIQUE INDEX IF NOT EXISTS profiles_username_lower_uidx
   ON public.profiles (lower(username))
   WHERE username IS NOT NULL AND trim(username) <> '';
 
--- Profiles created by Supabase Auth are visible to the account that owns them.
--- A user role submitted in user_metadata is not trusted; new accounts start as cashier
--- and their approved role and permissions are set by the authenticated users page.
-CREATE OR REPLACE FUNCTION public.handle_new_almokhtar_profile()
-RETURNS trigger
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public
-AS $$
-DECLARE
-  candidate_username text;
-BEGIN
-  candidate_username := lower(trim(coalesce(
-    nullif(NEW.raw_user_meta_data ->> 'username', ''),
-    split_part(coalesce(NEW.email, ''), '@', 1),
-    'user'
-  )));
-
-  INSERT INTO public.profiles (id, username, full_name, phone, role, permissions, created_at, updated_at)
-  VALUES (
-    NEW.id,
-    candidate_username,
-    nullif(NEW.raw_user_meta_data ->> 'full_name', ''),
-    nullif(NEW.raw_user_meta_data ->> 'phone', ''),
-    'cashier',
-    '{}'::jsonb,
-    now(),
-    now()
-  )
-  ON CONFLICT (id) DO NOTHING;
-
-  RETURN NEW;
-END;
-$$;
-
-DROP TRIGGER IF EXISTS on_auth_user_created_almokhtar_profile ON auth.users;
-CREATE TRIGGER on_auth_user_created_almokhtar_profile
-AFTER INSERT ON auth.users
-FOR EACH ROW EXECUTE FUNCTION public.handle_new_almokhtar_profile();
-
+-- No automatic profile is created for arbitrary Auth signups. The Users page must create
+-- the profile explicitly after its authorized manager creates the Auth identity.
 -- Profile permissions, not app_metadata, govern access to the hosted ERP.
 CREATE OR REPLACE FUNCTION public.current_user_can_manage_profiles()
 RETURNS boolean
