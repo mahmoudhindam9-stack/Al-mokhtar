@@ -1757,7 +1757,16 @@ export class ERPStore {
   }
   deleteUser(id) {
     if (!this.state.users) return;
-    this.state.users = this.state.users.filter((u) => u.id !== id);
+    const removedUser = this.state.users.find((user) => user.id === id);
+    this.state.users = this.state.users.filter((user) => user.id !== id);
+    if (removedUser?.username && this.state.userPermissions) {
+      const permissions = { ...this.state.userPermissions };
+      delete permissions[removedUser.username];
+      this.state.userPermissions = permissions;
+    }
+    if (removedUser?.username === this.state.currentUser) {
+      this.state.currentUser = "";
+    }
     this.saveState();
   }
   setCurrentUser(email) {
