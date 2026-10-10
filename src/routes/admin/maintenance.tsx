@@ -1104,6 +1104,7 @@ function MaintenancePage() {
                     <td className="p-3 whitespace-nowrap"><p className="font-black">{money((Number(order.laborCost) || 0) + (Number(order.partsCost) || 0))} ج.م</p>{order.financialVoucherId ? <p className="mt-1 text-[11px] text-emerald-600">مرحّل للمالية · {order.financialVoucherId}</p> : <p className="mt-1 text-[11px] text-muted-foreground">غير مرحّل ماليًا</p>}</td>
                     <td className="p-3"><div className="flex flex-wrap gap-1.5">
                       {canManageRequests && <button className={smallButton} onClick={() => openOrderEditor(order)}><Pencil size={13}/> تعديل</button>}
+                      {canManageStock && !order.financialVoucherId && <button className={smallButton} onClick={() => { setIssueOrderId(order.id); setIssueForm({ inventoryId: "", quantity: "1" }); }}><PackagePlus size={13}/> صرف قطع غيار</button>}
                       {canPostFinance && ["COMPLETED", "CLOSED"].includes(order.status) && !order.financialVoucherId && <button className={`${smallButton} border-emerald-500/40 text-emerald-700`} onClick={() => { setFinanceOrderId(order.id); setFinanceTreasuryId(treasuries[0]?.id || ""); }}><Wallet size={13}/> ترحيل للمالية</button>}
                       {canManageRequests && !order.financialVoucherId && <button className={`${smallButton} text-destructive`} onClick={() => deleteOrder(order)}><Trash2 size={13}/></button>}
                     </div></td>
@@ -1113,6 +1114,54 @@ function MaintenancePage() {
               </table></div>
             </CardContent>
           </Card>
+          {issueOrderId && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4">
+            <Card className="w-full max-w-lg shadow-2xl">
+              <CardHeader>
+                <CardTitle>صرف قطع غيار من مخزن الصيانة</CardTitle>
+                <CardDescription>سيتم تخفيض رصيد الصنف وتسجيل الصرف ضمن طلب الصيانة نفسه.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <Field label="الصنف المتاح في مخزن الصيانة">
+                  <select className={selectClass} value={issueForm.inventoryId} onChange={(event) => setIssueForm((current) => ({ ...current, inventoryId: event.target.value }))} required>
+                    <option value="">اختر الصنف</option>
+                    {maintenanceInventoryItems.filter((item: any) => stockQuantity(item.id) > 0).map((item: any) => (
+                      <option key={item.id} value={item.id}>{item.name_ar} — المتاح {money(stockQuantity(item.id))} {item.unit}</option>
+                    ))}
+                  </select>
+                </Field>
+                <Field label="الكمية المراد صرفها">
+                  <input className={inputClass} type="number" min="0.01" step="0.01" value={issueForm.quantity} onChange={(event) => setIssueForm((current) => ({ ...current, quantity: event.target.value }))} required />
+                </Field>
+                {issueForm.inventoryId && <p className="rounded-lg bg-muted/40 p-3 text-xs text-muted-foreground">التكلفة التقديرية: {money((Number(maintenanceInventoryItems.find((item: any) => item.id === issueForm.inventoryId)?.cost) || 0) * (Number(issueForm.quantity) || 0))} ج.م. ستضاف إلى تكلفة قطع الغيار بالطلب.</p>}
+                <div className="flex flex-wrap gap-2">
+                  <Button onClick={issuePartToOrder} disabled={isIssuingPart || !issueForm.inventoryId || !maintenanceWarehouse}>{isIssuingPart ? "جاري الصرف…" : "تأكيد صرف القطع"}</Button>
+                  <Button variant="outline" onClick={() => setIssueOrderId(null)} disabled={isIssuingPart}>إلغاء</Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>}
+
+          {qrModalData && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4">
+            <Card className="w-full max-w-md shadow-2xl">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2"><QrCode size={19}/> QR لطلب الصيانة الذاتي</CardTitle>
+                <CardDescription>{qrModalData.name}</CardDescription>
+              </CardHeader>
+              <CardContent className="flex flex-col items-center gap-4">
+                <div className="rounded-xl border bg-white p-4">
+                  <QRCodeSVG value={qrModalData.url} size={240} includeMargin level="M" />
+                </div>
+                <p className="w-full break-all rounded-lg bg-muted/40 p-3 text-xs text-muted-foreground" dir="ltr">{qrModalData.url}</p>
+                <div className="flex flex-wrap justify-center gap-2">
+                  <Button onClick={() => window.print()} variant="outline"><ClipboardCheck className="ml-2" size={15}/> طباعة QR</Button>
+                  <Button onClick={() => { void navigator.clipboard?.writeText(qrModalData.url); }} variant="outline">نسخ الرابط</Button>
+                  <Button onClick={() => setQrModalData(null)}>إغلاق</Button>
+                </div>
+                <p className="text-center text-[11px] text-muted-foreground">عند مسح الرمز يفتح نموذج بلاغ يحدد المبنى والفرع تلقائيًا.</p>
+              </CardContent>
+            </Card>
+          </div>}
+
           {financeOrderId && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4">
             <Card className="w-full max-w-lg shadow-2xl"><CardHeader><CardTitle>ترحيل تكلفة طلب الصيانة للمالية</CardTitle><CardDescription>سيتم إنشاء سند صرف وقيد محاسبي من خلال نظام المختار الحالي.</CardDescription></CardHeader>
               <CardContent className="space-y-4">
@@ -1192,6 +1241,22 @@ function MaintenancePage() {
           </table></div></CardContent></Card>
         </div>
       )}
+
+      {qrModalData && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4">
+        <Card className="w-full max-w-md shadow-2xl">
+          <CardHeader><CardTitle className="flex items-center gap-2"><QrCode size={19}/> QR لطلب الصيانة الذاتي</CardTitle><CardDescription>{qrModalData.name}</CardDescription></CardHeader>
+          <CardContent className="flex flex-col items-center gap-4">
+            <div className="rounded-xl border bg-white p-4"><QRCodeSVG value={qrModalData.url} size={240} includeMargin level="M" /></div>
+            <p className="w-full break-all rounded-lg bg-muted/40 p-3 text-xs text-muted-foreground" dir="ltr">{qrModalData.url}</p>
+            <div className="flex flex-wrap justify-center gap-2">
+              <Button onClick={() => window.print()} variant="outline"><ClipboardCheck className="ml-2" size={15}/> طباعة QR</Button>
+              <Button onClick={() => { void navigator.clipboard?.writeText(qrModalData.url); }} variant="outline">نسخ الرابط</Button>
+              <Button onClick={() => setQrModalData(null)}>إغلاق</Button>
+            </div>
+            <p className="text-center text-[11px] text-muted-foreground">عند مسح الرمز يفتح نموذج بلاغ يحدد المبنى والفرع تلقائيًا.</p>
+          </CardContent>
+        </Card>
+      </div>}
     </div>
   );
 }
