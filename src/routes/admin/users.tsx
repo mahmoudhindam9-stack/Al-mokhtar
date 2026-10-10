@@ -55,6 +55,12 @@ const roleLabels: Record<string, string> = {
   kitchen: "أمين تشغيل ومستودع",
 };
 
+function isHostedDeployment(): boolean {
+  if (typeof window === "undefined") return false;
+  const host = window.location.hostname.toLowerCase();
+  return !["localhost", "127.0.0.1", "::1", "[::1]"].includes(host) && !host.endsWith(".localhost");
+}
+
 interface PermissionItem {
   key: keyof UserPermission;
   name: string;
@@ -594,50 +600,69 @@ function UsersPage() {
 
   const upsert = async () => {
     const emailToUse = form.username.includes("@")
-      ? form.username
-      : `${form.username}@restocash.local`;
+      ? form.username.trim().toLowerCase()
+      : `${form.username.trim()}@restocash.local`;
+    const hosted = isHostedDeployment();
 
     if (editing) {
-      // In a real app we'd also update Supabase if email/password changed,
-      // but for this MVP we just update the local metadata.
+      // On hosted deployments, never store a cloud password in browser-local ERP data.
       erpStore.upsertUser({
         ...editing,
         full_name: form.full_name,
         username: form.username,
         phone: form.phone,
         role: form.role,
-        ...(form.password ? { password: form.password } : {}),
+        ...(form.password && !hosted ? { password: form.password } : {}),
       });
       setEditing(null);
-    } else {
-      try {
-        await authService.signUpNewUser(emailToUse, form.password || "12345678", {
-          full_name: form.full_name,
-          phone: form.phone,
-          role: form.role,
-        });
-      } catch (err: any) {
+      setForm({ full_name: "", username: "", phone: "", password: "", role: "cashier" });
+      setIsConfirmUpsertOpen(false);
+      toast({ title: "تم تحديث بيانات المستخدم", description: "تم حفظ بيانات المستخدم محليًا." });
+      return;
+    }
+
+    let cloudAccountCreated = false;
+    let cloudAccountError = "";
+    try {
+      await authService.signUpNewUser(emailToUse, form.password, {
+        full_name: form.full_name,
+        phone: form.phone,
+        role: form.role,
+      });
+      cloudAccountCreated = true;
+    } catch (err: any) {
+      cloudAccountError = err?.message || "تعذر إنشاء حساب Supabase.";
+      if (hosted) {
         toast({
-          title: "خطأ في إنشاء المستخدم",
-          description: err.message || "حدث خطأ غير معروف",
+          title: "تعذر إنشاء حساب المستخدم",
+          description: cloudAccountError,
           variant: "destructive",
         });
         setIsConfirmUpsertOpen(false);
         return;
       }
-
-      erpStore.upsertUser({
-        id: `u-${Date.now()}`,
-        full_name: form.full_name,
-        username: form.username,
-        phone: form.phone,
-        role: form.role,
-        password: form.password,
-        created_at: new Date().toISOString(),
-      });
+      // Local/offline installations must still be able to create a local ERP account.
+      console.warn("Cloud sign-up unavailable; creating a local Al-Mokhtar user.", err);
     }
+
+    erpStore.upsertUser({
+      id: `u-${Date.now()}`,
+      full_name: form.full_name,
+      username: form.username,
+      phone: form.phone,
+      role: form.role,
+      ...(hosted ? {} : { password: form.password }),
+      created_at: new Date().toISOString(),
+    });
+
     setForm({ full_name: "", username: "", phone: "", password: "", role: "cashier" });
     setIsConfirmUpsertOpen(false);
+    toast({
+      title: "تم إنشاء المستخدم بنجاح",
+      description: hosted || cloudAccountCreated
+        ? "تم حفظ بيانات المستخدم وإنشاء حساب المصادقة."
+        : `تم إنشاء الحساب المحلي. حساب الإنترنت لم يُنشأ: ${cloudAccountError}`,
+    });
   };
 
   const deleteUser = () => {
