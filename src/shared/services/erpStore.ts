@@ -361,6 +361,9 @@ export interface UserPermission {
   maintenance_manage_buildings?: boolean;
   maintenance_export_reports?: boolean;
 
+  // Labor-law policies and HR compliance pages
+  labor_law_view?: boolean;
+
   // Park & Tickets (Mall)
   manage_park_shifts?: boolean;
   delete_park_shifts?: boolean;
