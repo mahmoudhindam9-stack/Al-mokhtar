@@ -1,10 +1,10 @@
 <div align="center">
-  <img alt="Restocash" src="https://placehold.co/1200x300?text=Restocash+%7C+Restaurant+ERP+%2B+POS" />
+  <img alt="المختار لإدارة المشروعات" src="./public/al-mokhtar-logo.svg" width="420" />
 </div>
 
-# Restocash
+# المختار لإدارة المشروعات
 
-A complete **restaurant management ERP** built on [TanStack Start](https://tanstack.com/start) + [Supabase](https://supabase.com), featuring integrated point-of-sale, multi-warehouse inventory, recipe/BOM stock tracking, multi-currency accounting, and HR modules. The UI is fully localized in Arabic (RTL).
+A complete **project management and accounting ERP** built on [TanStack Start](https://tanstack.com/start) + [Supabase](https://supabase.com), featuring integrated point-of-sale, multi-warehouse inventory, recipe/BOM stock tracking, multi-currency accounting, and HR modules. The UI is fully localized in Arabic (RTL).
 
 > Status: actively developed. See `AGENTS.md` for the Lovable sync contract.
 

@@ -83,7 +83,7 @@ import {
 } from "@/shared/services/githubUpdateService";
 
 export const Route = createFileRoute("/admin/system-update")({
-  head: () => ({ meta: [{ title: "تحديث السيستم وحزمة أكسس" }] }),
+  head: () => ({ meta: [{ title: "خيارات المطور والتحديثات — المختار" }] }),
   component: SystemUpdatePage,
 });
 
@@ -141,10 +141,11 @@ function SystemUpdatePage() {
 
   // GitHub Release State
   const [releaseTagName, setReleaseTagName] = useState(`v${CURRENT_VERSION}`);
-  const [releaseTitle, setReleaseTitle] = useState(`Al Mokhtar ERP v${CURRENT_VERSION}`);
+  const [releaseTitle, setReleaseTitle] = useState(APP_RELEASE_NAME);
   const [releaseNotes, setReleaseNotes] = useState(
-    `## 🚀 ما الجديد في الإصدار ${CURRENT_VERSION}:\n- إضافة واجهة تدقيق ومراجعة الورديات (Supabase Shift Audit Logs Viewer) وتتبع فتح وإغلاق الورديات.\n- معالجة وإلغاء فلترة الورديات السابقة وإصلاح مشاكل الورديات المخفية.\n- تحسين مسار الكاشير ونقاط البيع وإفراغ السلة تلقائياً بعد إتمام الدفع بنجاح.\n- إضافة واسترجاع بيانات الموظفين (erpStore.getEmployees) وتحديث واجهات النظام.\n- جاهزية كاملة للنشر التلقائي على Vercel والمزامنة مع GitHub.`,
+    `## المختار لإدارة المشروعات — v${CURRENT_VERSION}:\n- توحيد الهوية البصرية بالكحلي والذهبي والشعار المؤسسي في صفحات البرنامج ومخرجات الطباعة.\n- نقل المحاسب AI إلى الإدارة المالية وتحسين توليد التقارير وطباعة PDF وتصدير CSV.\n- إضافة فحص تحديثات GitHub يدويًا وتلقائيًا، مع ربط النسخة برقم إصدار واضح.\n- تحسين حزمة ويندوز بحيث تحتوي على Install وUninstall فقط، مع Runtime مرفق واختصارات تلقائية.\n- إصلاح أخطاء TypeScript والبناء وتدقيق مسار المزامنة المحلية والسحابية.`,
   );
+
   const [isCreatingRelease, setIsCreatingRelease] = useState(false);
   const [releaseResult, setReleaseResult] = useState<{
     success?: boolean;
@@ -331,13 +332,14 @@ function SystemUpdatePage() {
   const handleApplyGitHubUpdate = async () => {
     setIsApplyingUpdate(true);
     toast({
-      title: "جاري تثبيت وتطبيق التحديث...",
-      description: "مسح الذاكرة المؤقتة وإعادة مزامنة النظام وتحديث الأكواد...",
+      title: "جاري فتح صفحة تنزيل التحديث...",
+      description: "سيتم فتح إصدار GitHub لتنزيل حزمة التثبيت الرسمية، ثم تشغيل Install لتطبيق التحديث.",
     });
     const res = await githubUpdateService.performUpdate();
     if (res.success) {
+      setIsApplyingUpdate(false);
       toast({
-        title: "تم التحديث بنجاح! 🟢",
+        title: "تم فتح صفحة التنزيل 🟢",
         description: res.message,
       });
     } else {
@@ -367,9 +369,9 @@ function SystemUpdatePage() {
     const updated = githubUpdateService.saveSettings({ autoCheck: enabled });
     setUpdateSettings(updated);
     toast({
-      title: enabled ? "تم تفعيل التحديث التلقائي" : "تم تعطيل التحديث التلقائي",
+      title: enabled ? "تم تفعيل الفحص التلقائي" : "تم تعطيل الفحص التلقائي",
       description: enabled
-        ? "سيقوم النظام بفحص التحديثات من GitHub تلقائياً عند فتح النظام في الخلفية"
+        ? "يفحص الإصدارات عند فتح البرنامج وكل 15 دقيقة؛ تنزيل النسخة وتثبيتها يتم عبر حزمة Install الرسمية"
         : "يمكنك دائماً البحث عن التحديثات يدوياً بالضغط على زر البحث عن التحديثات",
     });
   };
@@ -701,7 +703,7 @@ function SystemUpdatePage() {
       name: "tblOrders",
       label: "المبيعات والطلبات التشغيلية",
       csvName: "Orders.csv",
-      count: erpState.treasuryTransactions?.filter((t) => t.type === "sales")?.length || 0,
+      count: erpState.treasuryTransactions?.filter((t: any) => t.type === "sales")?.length || 0,
       description: "المعاملات المالية والتشغيلية المعتمدة",
       primaryKey: "id",
       fields: ["id", "order_type", "table_number", "total", "status"],
@@ -796,11 +798,11 @@ function SystemUpdatePage() {
           </div>
 
           <div className="flex items-center gap-2.5 w-full md:w-auto justify-between md:justify-end flex-wrap">
-            <div className="flex items-center gap-1.5 px-3 py-2 bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-900 rounded-xl text-xs font-bold">
+            <div className="flex items-center gap-1.5 px-3 py-2 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 rounded-xl text-xs font-bold">
               <span className="text-muted-foreground">رقم النسخة:</span>
               <Badge
                 variant="secondary"
-                className="font-mono text-purple-700 dark:text-purple-300 bg-white dark:bg-purple-900 font-black text-xs px-2 py-0.5"
+                className="font-mono text-amber-700 dark:text-amber-300 bg-white dark:bg-amber-900 font-black text-xs px-2 py-0.5"
               >
                 v{CURRENT_VERSION}
               </Badge>
@@ -810,7 +812,7 @@ function SystemUpdatePage() {
               onClick={handleCheckGitHubUpdates}
               disabled={isCheckingUpdate}
               variant="outline"
-              className="gap-2 font-bold text-xs sm:text-sm border-purple-200 dark:border-purple-800 text-purple-700 dark:text-purple-400 bg-purple-50/50 hover:bg-purple-100 dark:bg-purple-950/20 dark:hover:bg-purple-900/40 h-11 rounded-xl shrink-0"
+              className="gap-2 font-bold text-xs sm:text-sm border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400 bg-amber-50/50 hover:bg-amber-100 dark:bg-amber-950/20 dark:hover:bg-amber-900/40 h-11 rounded-xl shrink-0"
             >
               <RefreshCw size={16} className={isCheckingUpdate ? "animate-spin" : ""} />
               {isCheckingUpdate ? "جاري الفحص..." : "البحث عن تحديثات"}
@@ -819,7 +821,7 @@ function SystemUpdatePage() {
             <Button
               onClick={() => setDevModeOpen(true)}
               variant="outline"
-              className="gap-2 font-bold text-xs sm:text-sm border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-400 bg-indigo-50/50 hover:bg-indigo-100 dark:bg-indigo-950/20 dark:hover:bg-indigo-900/40 h-11 rounded-xl shrink-0"
+              className="gap-2 font-bold text-xs sm:text-sm border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-400 bg-slate-50/50 hover:bg-slate-100 dark:bg-slate-950/20 dark:hover:bg-slate-900/40 h-11 rounded-xl shrink-0"
             >
               <Settings size={18} />
               خيارات المطور
@@ -830,26 +832,26 @@ function SystemUpdatePage() {
         {/* TAB 1: SYSTEM UPDATE & BACKUP */}
         <TabsContent value="system" className="space-y-6 mt-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Card 0: System Version & GitHub Automatic Update (إصدار النظام والتحديث التلقائي من GitHub) */}
+            {/* Card 0: System Version & GitHub Automatic Update (إصدار المختار ومراجعة التحديثات من GitHub) */}
             <Card className="col-span-1 md:col-span-2 border-border/80 shadow-sm rounded-2xl overflow-hidden hover:shadow-md transition-shadow bg-card">
-              <CardHeader className="bg-gradient-to-r from-purple-500/10 via-indigo-500/5 to-transparent border-b border-border/40 pb-4">
+              <CardHeader className="bg-gradient-to-r from-amber-500/10 via-slate-500/5 to-transparent border-b border-border/40 pb-4">
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                   <div>
                     <CardTitle className="text-lg sm:text-xl font-black text-foreground flex items-center gap-2">
-                      <Github size={24} className="text-purple-600 dark:text-purple-400" />
-                      إصدار النظام والتحديث التلقائي من GitHub
+                      <Github size={24} className="text-amber-600 dark:text-amber-400" />
+                      إصدار المختار ومراجعة التحديثات من GitHub
                     </CardTitle>
                     <CardDescription className="font-bold text-xs sm:text-sm text-muted-foreground mt-1">
-                      متابعة رقم النسخة الحالية وفحص التحديثات والمزامنة المباشرة مع مستودع GitHub
+                      متابعة النسخة الحالية وفحص يدوي أو تلقائي للإصدارات المنشورة على GitHub
                     </CardDescription>
                   </div>
                   <div className="flex items-center gap-2">
                     <Badge
                       variant="outline"
-                      className="px-3 py-1 text-xs font-bold gap-1.5 border-purple-300 dark:border-purple-800 text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/40"
+                      className="px-3 py-1 text-xs font-bold gap-1.5 border-amber-300 dark:border-amber-800 text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40"
                     >
-                      <Sparkles size={13} className="text-purple-600" />
-                      النسخة المثبتة: v{CURRENT_VERSION}
+                      <Sparkles size={13} className="text-amber-600" />
+                      {APP_RELEASE_NAME}
                     </Badge>
                   </div>
                 </div>
@@ -857,9 +859,9 @@ function SystemUpdatePage() {
               <CardContent className="p-4 sm:p-6 space-y-6">
                 {/* Metrics Row */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div className="bg-purple-50/60 dark:bg-purple-950/20 border border-purple-200/80 dark:border-purple-900/40 p-4 rounded-xl space-y-1">
+                  <div className="bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200/80 dark:border-amber-900/40 p-4 rounded-xl space-y-1">
                     <div className="text-xs font-bold text-muted-foreground flex items-center gap-1.5">
-                      <GitBranch size={14} className="text-purple-600" />
+                      <GitBranch size={14} className="text-amber-600" />
                       رقم النسخة الحالية
                     </div>
                     <div className="text-2xl font-black text-foreground font-mono">
@@ -870,9 +872,9 @@ function SystemUpdatePage() {
                     </div>
                   </div>
 
-                  <div className="bg-blue-50/60 dark:bg-blue-950/20 border border-blue-200/80 dark:border-blue-900/40 p-4 rounded-xl space-y-1">
+                  <div className="bg-slate-50/60 dark:bg-slate-950/20 border border-slate-200/80 dark:border-slate-900/40 p-4 rounded-xl space-y-1">
                     <div className="text-xs font-bold text-muted-foreground flex items-center gap-1.5">
-                      <Github size={14} className="text-blue-600" />
+                      <Github size={14} className="text-slate-600" />
                       أحدث نسخة في GitHub
                     </div>
                     <div className="text-2xl font-black text-foreground font-mono">
@@ -947,7 +949,7 @@ function SystemUpdatePage() {
                             href={updateInfo.releaseUrl}
                             target="_blank"
                             rel="noreferrer"
-                            className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline font-bold px-2 py-1"
+                            className="inline-flex items-center gap-1 text-xs text-slate-600 hover:underline font-bold px-2 py-1"
                           >
                             <ExternalLink size={13} />
                             عرض المستودع
@@ -960,8 +962,8 @@ function SystemUpdatePage() {
                         >
                           <RefreshCw size={15} className={isApplyingUpdate ? "animate-spin" : ""} />
                           {isApplyingUpdate
-                            ? "جاري تثبيت التحديث..."
-                            : `تحديث النظام الآن إلى v${updateInfo.latestVersion}`}
+                            ? "جاري فتح صفحة التنزيل..."
+                            : `تنزيل نسخة التحديث v${updateInfo.latestVersion}`}
                         </Button>
                       </div>
                     </div>
@@ -972,8 +974,8 @@ function SystemUpdatePage() {
                 <div className="bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 p-4 sm:p-5 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                   <div className="space-y-1">
                     <h4 className="font-black text-sm text-foreground flex items-center gap-2">
-                      <RefreshCw size={16} className="text-purple-600" />
-                      البحث عن التحديثات المباشرة من GitHub
+                      <RefreshCw size={16} className="text-amber-600" />
+                      مراجعة التحديثات المنشورة على GitHub
                     </h4>
                     <p className="text-xs text-muted-foreground">
                       يقوم بالاتصال المباشر بمستودع GitHub للتحقق مما إذا كان هناك إصدار أحدث جاهز
@@ -983,7 +985,7 @@ function SystemUpdatePage() {
                   <Button
                     onClick={handleCheckGitHubUpdates}
                     disabled={isCheckingUpdate}
-                    className="w-full sm:w-auto gap-2 font-black shadow-md bg-purple-600 hover:bg-purple-700 text-white text-xs sm:text-sm h-11 px-6 rounded-xl touch-manipulation shrink-0"
+                    className="w-full sm:w-auto gap-2 font-black shadow-md bg-amber-600 hover:bg-amber-700 text-white text-xs sm:text-sm h-11 px-6 rounded-xl touch-manipulation shrink-0"
                   >
                     <RefreshCw size={16} className={isCheckingUpdate ? "animate-spin" : ""} />
                     {isCheckingUpdate ? "جاري فحص GitHub..." : "البحث عن التحديثات الآن"}
@@ -1000,7 +1002,7 @@ function SystemUpdatePage() {
                       <Input
                         value={repoInput}
                         onChange={(e) => setRepoInput(e.target.value)}
-                        placeholder="https://github.com/mahmoudhindam9-stack/jupa-se.git"
+                        placeholder="https://github.com/mahmoudhindam9-stack/Al-mokhtar.git"
                         className="font-mono text-xs h-10 rounded-xl"
                         dir="ltr"
                       />
@@ -1017,7 +1019,7 @@ function SystemUpdatePage() {
                     <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-0.5">
                       <span>
                         المستودع النشط:{" "}
-                        <strong className="font-mono text-purple-700 dark:text-purple-300 font-bold">
+                        <strong className="font-mono text-amber-700 dark:text-amber-300 font-bold">
                           {updateSettings.repo}
                         </strong>
                       </span>
@@ -1025,7 +1027,7 @@ function SystemUpdatePage() {
                         href={`https://github.com/${updateSettings.repo}`}
                         target="_blank"
                         rel="noreferrer"
-                        className="text-blue-600 hover:underline flex items-center gap-1 font-bold text-[11px]"
+                        className="text-slate-600 hover:underline flex items-center gap-1 font-bold text-[11px]"
                       >
                         <ExternalLink size={12} />
                         زيارة المستودع
@@ -1037,10 +1039,10 @@ function SystemUpdatePage() {
                     <div className="flex items-center justify-between">
                       <div>
                         <div className="font-bold text-xs text-foreground">
-                          التحديث التلقائي عند فتح النظام
+                          الفحص التلقائي لإصدارات GitHub
                         </div>
                         <div className="text-[11px] text-muted-foreground">
-                          التحقق من وجود إصدار أعلى تلقائياً في الخلفية عند فتح التطبيق
+                          فحص عند فتح التطبيق ثم كل 15 دقيقة. تنزيل النسخة وتثبيتها يتطلبان تشغيل Install لتجنّب استبدال ملفات البرنامج أثناء عمله.
                         </div>
                       </div>
                       <Switch
@@ -1198,10 +1200,10 @@ git push origin main`}
                   </div>
 
                   {/* Create New Official GitHub Release */}
-                  <div className="border border-purple-200 dark:border-purple-900/50 bg-gradient-to-br from-purple-50/50 via-indigo-50/20 to-purple-50/30 dark:from-purple-950/20 dark:via-indigo-950/10 dark:to-purple-950/20 rounded-2xl p-4 sm:p-5 space-y-4">
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border-b border-purple-200/60 dark:border-purple-900/40 pb-3">
+                  <div className="border border-amber-200 dark:border-amber-900/50 bg-gradient-to-br from-amber-50/50 via-slate-50/20 to-amber-50/30 dark:from-amber-950/20 dark:via-slate-950/10 dark:to-amber-950/20 rounded-2xl p-4 sm:p-5 space-y-4">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border-b border-amber-200/60 dark:border-amber-900/40 pb-3">
                       <div className="flex items-center gap-2">
-                        <Rocket className="text-purple-600 dark:text-purple-400" size={20} />
+                        <Rocket className="text-amber-600 dark:text-amber-400" size={20} />
                         <div>
                           <h4 className="font-black text-sm sm:text-base text-foreground">
                             إنشاء ونشر إصدار رسمي جديد (New GitHub Release)
@@ -1214,7 +1216,7 @@ git push origin main`}
                       </div>
                       <Badge
                         variant="outline"
-                        className="font-mono text-xs border-purple-300 text-purple-700 bg-purple-50 dark:bg-purple-950/40 shrink-0"
+                        className="font-mono text-xs border-amber-300 text-amber-700 bg-amber-50 dark:bg-amber-950/40 shrink-0"
                       >
                         <Tag size={12} className="ml-1 inline" />
                         Tag: {releaseTagName}
@@ -1226,7 +1228,7 @@ git push origin main`}
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                           <div className="space-y-1.5">
                             <label className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                              <Tag size={13} className="text-purple-600" />
+                              <Tag size={13} className="text-amber-600" />
                               رقم الإصدار (Tag Name):
                             </label>
                             <Input
@@ -1270,7 +1272,7 @@ git push origin main`}
                         <Button
                           onClick={handleCreateGitHubRelease}
                           disabled={isCreatingRelease || !githubToken.trim()}
-                          className="w-full gap-2 font-black shadow-md bg-purple-600 hover:bg-purple-700 text-white text-xs sm:text-sm h-11 rounded-xl touch-manipulation"
+                          className="w-full gap-2 font-black shadow-md bg-amber-600 hover:bg-amber-700 text-white text-xs sm:text-sm h-11 rounded-xl touch-manipulation"
                         >
                           <Rocket size={17} className={isCreatingRelease ? "animate-bounce" : ""} />
                           {isCreatingRelease
@@ -1279,9 +1281,9 @@ git push origin main`}
                         </Button>
 
                         {releaseResult?.success && (
-                          <div className="p-3 bg-purple-100 dark:bg-purple-900/40 text-purple-900 dark:text-purple-200 rounded-xl text-xs font-bold space-y-2">
+                          <div className="p-3 bg-amber-100 dark:bg-amber-900/40 text-amber-900 dark:text-amber-200 rounded-xl text-xs font-bold space-y-2">
                             <div className="flex items-center gap-2">
-                              <CheckCircle2 size={16} className="text-purple-600 shrink-0" />
+                              <CheckCircle2 size={16} className="text-amber-600 shrink-0" />
                               <span>{releaseResult.message}</span>
                             </div>
                             {releaseResult.releaseUrl && (
@@ -1289,7 +1291,7 @@ git push origin main`}
                                 href={releaseResult.releaseUrl}
                                 target="_blank"
                                 rel="noreferrer"
-                                className="inline-flex items-center gap-1.5 bg-purple-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-purple-700 transition-colors shadow-sm"
+                                className="inline-flex items-center gap-1.5 bg-amber-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-amber-700 transition-colors shadow-sm"
                               >
                                 <ExternalLink size={13} />
                                 عرض صفحة الإصدار على GitHub
@@ -1308,7 +1310,7 @@ git push origin main`}
 
                       <div className="bg-slate-950 text-slate-200 p-4 rounded-xl font-mono text-xs space-y-3 border border-slate-800 flex flex-col justify-between">
                         <div className="space-y-2">
-                          <div className="text-[11px] text-purple-400 font-bold flex items-center justify-between">
+                          <div className="text-[11px] text-amber-400 font-bold flex items-center justify-between">
                             <span className="flex items-center gap-1.5">
                               <Terminal size={14} />
                               أوامر إنشاء الإصدار عبر الطرفية (Git CLI / GitHub CLI):
@@ -1341,9 +1343,9 @@ gh release create ${releaseTagName} --title "${releaseTitle}" --generate-notes`}
                         </div>
 
                         <div className="text-[10px] text-slate-400 border-t border-slate-800 pt-2 leading-relaxed">
-                          💡 <strong className="text-purple-300">نصيحة:</strong> يتم ربط الإصدار
+                          💡 <strong className="text-amber-300">نصيحة:</strong> يتم ربط الإصدار
                           تلقائياً بآخر التحديثات على الفرع{" "}
-                          <code className="text-purple-200 font-mono">main</code> ويظهر في صفحة
+                          <code className="text-amber-200 font-mono">main</code> ويظهر في صفحة
                           Releases الرسمية لمستودعك.
                         </div>
                       </div>
@@ -1351,7 +1353,7 @@ gh release create ${releaseTagName} --title "${releaseTitle}" --generate-notes`}
                   </div>
 
                   {/* Deploy on Vercel */}
-                  <div className="border border-sky-200 dark:border-sky-900/50 bg-gradient-to-br from-sky-50/60 via-blue-50/20 to-sky-50/30 dark:from-sky-950/20 dark:via-blue-950/10 dark:to-sky-950/20 rounded-2xl p-4 sm:p-5 space-y-4">
+                  <div className="border border-sky-200 dark:border-sky-900/50 bg-gradient-to-br from-sky-50/60 via-slate-50/20 to-sky-50/30 dark:from-sky-950/20 dark:via-slate-950/10 dark:to-sky-950/20 rounded-2xl p-4 sm:p-5 space-y-4">
                     <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-sky-200/60 dark:border-sky-900/40 pb-3">
                       <div className="flex items-center gap-2">
                         <Globe className="text-sky-600 dark:text-sky-400" size={20} />
@@ -1539,9 +1541,9 @@ vercel --prod`}
 
             {/* Card 2: Cloud & Local Backup Management */}
             <Card className="border-border/70 shadow-sm rounded-2xl overflow-hidden hover:shadow-md transition-shadow">
-              <CardHeader className="bg-gradient-to-r from-blue-500/10 via-indigo-500/5 to-transparent border-b border-border/40 pb-4">
+              <CardHeader className="bg-gradient-to-r from-slate-500/10 via-slate-500/5 to-transparent border-b border-border/40 pb-4">
                 <CardTitle className="text-lg sm:text-xl font-black text-foreground flex items-center gap-2">
-                  <Database size={22} className="text-blue-600 dark:text-blue-400" />
+                  <Database size={22} className="text-slate-600 dark:text-slate-400" />
                   النسخ الاحتياطي السحابي والمحلي
                 </CardTitle>
                 <CardDescription className="font-bold text-xs sm:text-sm text-muted-foreground">
@@ -1550,15 +1552,15 @@ vercel --prod`}
               </CardHeader>
               <CardContent className="p-4 sm:p-6 space-y-4">
                 <div className="space-y-4">
-                  <div className="bg-blue-50/60 dark:bg-blue-950/20 border border-blue-200/80 dark:border-blue-900/40 p-4 rounded-xl">
+                  <div className="bg-slate-50/60 dark:bg-slate-950/20 border border-slate-200/80 dark:border-slate-900/40 p-4 rounded-xl">
                     <div className="flex items-center justify-between mb-2">
-                      <h4 className="font-black text-xs sm:text-sm text-blue-900 dark:text-blue-300 flex items-center gap-1.5">
+                      <h4 className="font-black text-xs sm:text-sm text-slate-900 dark:text-slate-300 flex items-center gap-1.5">
                         <Layers size={16} /> الحفظ السحابي (Supabase)
                       </h4>
                     </div>
                     <Button
                       onClick={saveDataToDatabase}
-                      className="w-full gap-2 font-bold shadow-sm bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm h-11 rounded-xl touch-manipulation"
+                      className="w-full gap-2 font-bold shadow-sm bg-slate-600 hover:bg-slate-700 text-white text-xs sm:text-sm h-11 rounded-xl touch-manipulation"
                     >
                       <Save size={18} />
                       حفظ البيانات سحابياً الآن
@@ -1686,7 +1688,7 @@ vercel --prod`}
                   <Badge className="bg-emerald-500/20 text-emerald-300 border-emerald-500/40 font-mono text-xs px-3 py-1">
                     Juba.zip
                   </Badge>
-                  <Badge className="bg-blue-500/20 text-blue-300 border-blue-500/40 font-mono text-xs px-3 py-1">
+                  <Badge className="bg-slate-500/20 text-slate-300 border-slate-500/40 font-mono text-xs px-3 py-1">
                     UTF-8 BOM CSV
                   </Badge>
                   <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/40 font-mono text-xs px-3 py-1">
@@ -1785,7 +1787,7 @@ vercel --prod`}
                 onClick={() => setShowSchemaDialog(true)}
                 variant="outline"
                 size="sm"
-                className="gap-2 font-bold text-xs border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-400"
+                className="gap-2 font-bold text-xs border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-400"
               >
                 <FileCode size={15} />
                 معاينة أكواد SQL Schema
@@ -1968,7 +1970,7 @@ vercel --prod`}
           <DialogHeader className="p-4 border-b shrink-0 flex flex-row items-center justify-between bg-background">
             <div>
               <DialogTitle className="text-lg font-bold flex items-center gap-2">
-                <Settings className="text-indigo-500" />
+                <Settings className="text-slate-500" />
                 خيارات المطور - تعديل النصوص المباشر
               </DialogTitle>
               <CardDescription className="text-xs mt-1">
@@ -1979,7 +1981,7 @@ vercel --prod`}
             <div className="flex items-center gap-2 flex-wrap">
               <Badge
                 variant="outline"
-                className="font-mono text-xs font-bold border-purple-300 text-purple-700 bg-purple-50 dark:bg-purple-950/40 dark:border-purple-800 dark:text-purple-300"
+                className="font-mono text-xs font-bold border-amber-300 text-amber-700 bg-amber-50 dark:bg-amber-950/40 dark:border-amber-800 dark:text-amber-300"
               >
                 v{CURRENT_VERSION}
               </Badge>
@@ -1988,7 +1990,7 @@ vercel --prod`}
                 disabled={isCheckingUpdate}
                 variant="outline"
                 size="sm"
-                className="gap-1.5 text-xs font-bold border-purple-200 text-purple-700 hover:bg-purple-50 dark:border-purple-800 dark:text-purple-300"
+                className="gap-1.5 text-xs font-bold border-amber-200 text-amber-700 hover:bg-amber-50 dark:border-amber-800 dark:text-amber-300"
               >
                 <RefreshCw size={13} className={isCheckingUpdate ? "animate-spin" : ""} />
                 {isCheckingUpdate ? "جاري الفحص..." : "البحث عن تحديثات"}
@@ -2006,7 +2008,7 @@ vercel --prod`}
                 onClick={saveDevChangesOnly}
                 variant="secondary"
                 size="sm"
-                className="gap-1 text-xs bg-indigo-100 text-indigo-700 hover:bg-indigo-200 dark:bg-indigo-900/30 dark:text-indigo-300"
+                className="gap-1 text-xs bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-900/30 dark:text-slate-300"
               >
                 <Save size={15} />
                 حفظ

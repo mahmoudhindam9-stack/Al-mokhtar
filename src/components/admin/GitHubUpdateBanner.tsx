@@ -28,12 +28,22 @@ export function GitHubUpdateBanner() {
     });
 
     // Auto-check if enabled and not checked recently
-    const settings = githubUpdateService.getSettings();
-    if (settings.autoCheck) {
-      githubUpdateService.checkForUpdates(false).catch(() => {});
-    }
+    const runAutoCheck = () => {
+      if (githubUpdateService.getSettings().autoCheck) {
+        githubUpdateService.checkForUpdates(false).catch(() => {});
+      }
+    };
+    runAutoCheck();
+    const interval = window.setInterval(runAutoCheck, 15 * 60 * 1000);
+    const onFocus = () => runAutoCheck();
+    const onOnline = () => runAutoCheck();
+    window.addEventListener("focus", onFocus);
+    window.addEventListener("online", onOnline);
 
     return () => {
+      window.clearInterval(interval);
+      window.removeEventListener("focus", onFocus);
+      window.removeEventListener("online", onOnline);
       unsubscribe();
     };
   }, []);
@@ -44,9 +54,10 @@ export function GitHubUpdateBanner() {
 
   const handleApplyUpdate = async () => {
     setIsUpdating(true);
-    toast.loading("جاري تطبيق التحديث وتحديث ملفات النظام...", { id: "applying-update" });
+    toast.loading("جاري فتح صفحة تنزيل الإصدار المنشور على GitHub...", { id: "applying-update" });
     const res = await githubUpdateService.performUpdate();
     if (res.success) {
+      setIsUpdating(false);
       toast.success(res.message, { id: "applying-update" });
     } else {
       setIsUpdating(false);
@@ -56,10 +67,10 @@ export function GitHubUpdateBanner() {
 
   return (
     <>
-      <div className="bg-gradient-to-r from-amber-600 via-orange-600 to-rose-600 text-white px-4 py-2.5 shadow-md flex items-center justify-between gap-3 text-xs sm:text-sm animate-in fade-in slide-in-from-top-2 duration-300">
+      <div className="bg-gradient-to-r from-slate-950 via-slate-900 to-amber-800 text-white px-4 py-2.5 shadow-md flex items-center justify-between gap-3 text-xs sm:text-sm animate-in fade-in slide-in-from-top-2 duration-300">
         <div className="flex items-center gap-2.5 font-bold flex-1">
           <span className="p-1 rounded-full bg-white/20">
-            <Sparkles size={16} className="text-amber-200" />
+            <Sparkles size={16} className="text-amber-300" />
           </span>
           <span>
             يوجد تحديث جديد متاح من النظام على GitHub:{" "}
@@ -89,10 +100,10 @@ export function GitHubUpdateBanner() {
             size="sm"
             disabled={isUpdating}
             onClick={handleApplyUpdate}
-            className="h-8 px-3 text-xs font-black bg-white text-orange-700 hover:bg-amber-50 shadow-sm"
+            className="h-8 px-3 text-xs font-black bg-white text-slate-900 hover:bg-amber-50 shadow-sm"
           >
             <RefreshCw size={13} className={isUpdating ? "animate-spin ml-1.5" : "ml-1.5"} />
-            {isUpdating ? "جاري التحديث..." : "تحديث الآن"}
+            {isUpdating ? "جاري التحديث..." : "تنزيل التحديث"}
           </Button>
           <button
             onClick={() => setDismissed(true)}
@@ -122,7 +133,7 @@ export function GitHubUpdateBanner() {
             <div className="p-3 bg-muted/60 rounded-xl border space-y-1">
               <div className="font-bold text-xs text-muted-foreground">عنوان الإصدار:</div>
               <div className="font-bold text-sm text-foreground">
-                {updateInfo.releaseName || `Restocash v${updateInfo.latestVersion}`}
+                {updateInfo.releaseName || `المختار لإدارة المشروعات v${updateInfo.latestVersion}`}
               </div>
             </div>
 
@@ -164,10 +175,10 @@ export function GitHubUpdateBanner() {
                 setShowModal(false);
                 handleApplyUpdate();
               }}
-              className="text-xs font-black bg-amber-600 hover:bg-amber-700 text-white"
+              className="text-xs font-black bg-slate-900 hover:bg-slate-800 text-amber-100"
             >
               <RefreshCw size={14} className={isUpdating ? "animate-spin ml-1.5" : "ml-1.5"} />
-              تأكيد التحديث المباشر
+              تنزيل الإصدار من GitHub
             </Button>
           </DialogFooter>
         </DialogContent>

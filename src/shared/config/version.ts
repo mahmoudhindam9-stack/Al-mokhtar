@@ -1,13 +1,13 @@
 /**
- * Restocash System Version & Configuration
+ * Al-Mokhtar ERP Version & GitHub Update Configuration
  * Provides single source of truth for app version and GitHub repo metadata
  */
 
-export const CURRENT_VERSION = "1.3.0";
-export const APP_RELEASE_NAME = "المختار لإدارة المشروعات v1.3.0";
-export const BUILD_DATE = "2026-10-04";
-export const DEFAULT_GITHUB_REPO = "mahmoudhindam9-stack/jupa-sep";
-export const DEFAULT_GITHUB_REPO_URL = "https://github.com/mahmoudhindam9-stack/jupa-sep.git";
+export const CURRENT_VERSION = "1.4.0";
+export const APP_RELEASE_NAME = "المختار لإدارة المشروعات v1.4.0";
+export const BUILD_DATE = "2026-10-10";
+export const DEFAULT_GITHUB_REPO = "mahmoudhindam9-stack/Al-mokhtar";
+export const DEFAULT_GITHUB_REPO_URL = "https://github.com/mahmoudhindam9-stack/Al-mokhtar.git";
 
 /**
  * Normalizes version strings by trimming and stripping leading 'v'

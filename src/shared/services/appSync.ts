@@ -1,5 +1,6 @@
 import type { QueryClient } from "@tanstack/react-query";
 import { erpStore } from "./erpStore";
+import { startCloudSync } from "./cloudSync";
 
 const SYNC_EVENT = "restocash-data-sync";
 const SYNC_STORAGE_KEY = "restocash_sync_pulse";
@@ -12,6 +13,7 @@ export function createAppSync(queryClient: QueryClient) {
   if (typeof window === "undefined") return () => {};
 
   let lastPulse = "";
+  const stopCloudSync = startCloudSync();
 
   const reloadLocalErpState = () => {
     try {
@@ -20,7 +22,7 @@ export function createAppSync(queryClient: QueryClient) {
       const parsed = JSON.parse(raw);
       if (parsed && typeof parsed === "object") {
         const memoryEntriesCount = erpStore.state?.journalEntries?.length || 0;
-        const memoryUpdated = erpStore.state?._updatedAt || 0;
+        const memoryUpdated = (erpStore.state as any)?._updatedAt || 0;
 
         const parsedEntriesCount = parsed.journalEntries?.length || 0;
         const parsedUpdated = parsed._updatedAt || 0;
@@ -80,6 +82,7 @@ export function createAppSync(queryClient: QueryClient) {
   }, 1500);
 
   return () => {
+    stopCloudSync();
     window.removeEventListener("storage", onStorage);
     window.removeEventListener(SYNC_EVENT, onCustomSync);
     window.removeEventListener("focus", onFocus);

@@ -6,6 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useSettings, formatTreasuryCurrency } from "@/hooks/use-settings";
 import { AccountsPage } from "./accounts";
 import { LedgerPage } from "./ledger";
+import { AIAccountantPage } from "./ai-accountant";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -351,6 +352,10 @@ export function FinancialManagementPage() {
           <TabsTrigger value="ledger" className="rounded-lg font-bold py-2.5 px-4">
             <BookOpen size={16} className="ml-1.5 inline" />
             حساب الأستاذ والقيود
+          </TabsTrigger>
+          <TabsTrigger value="ai_accountant" className="rounded-lg font-bold py-2.5 px-4">
+            <FileSpreadsheet size={16} className="ml-1.5 inline" />
+            المحاسب AI والتقارير
           </TabsTrigger>
         </TabsList>
 
@@ -761,6 +766,10 @@ export function FinancialManagementPage() {
         {/* TAB 4: GENERAL LEDGER */}
         <TabsContent value="ledger" className="space-y-6 mt-4">
           <LedgerPage />
+        </TabsContent>
+
+        <TabsContent value="ai_accountant" className="space-y-4 mt-4">
+          <AIAccountantPage />
         </TabsContent>
       </Tabs>
     </div>
