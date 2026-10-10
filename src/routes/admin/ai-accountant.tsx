@@ -31,10 +31,10 @@ function AIAccountantPage() {
   const income = total(transactions.filter((x:any)=>/income|revenue|إيراد|دخل/i.test(String(x.type||x.category||x.account_name||""))),["amount","total","debit"]);
   const expenses = total(transactions.filter((x:any)=>/expense|مصروف|رواتب/i.test(String(x.type||x.category||x.account_name||""))),["amount","total","credit"]);
   const print = () => window.print();
-  return <div dir="rtl" className="p-4 md:p-6 space-y-6">
+  return <div dir="rtl" className="printable-area p-4 md:p-6 space-y-6"><div className="print-brand-header" dir="rtl"><img src="/al-mokhtar-mark.svg" alt="شعار المختار"/><div><strong>المختار</strong><span>لإدارة المشروعات</span></div></div>
     <div className="flex flex-wrap items-start justify-between gap-3">
       <div><h1 className="text-2xl font-black">المحاسب AI</h1><p className="text-sm text-muted-foreground mt-1">تقارير مالية وضريبية وتأمينية لمنشأة المختار</p></div>
-      <Button onClick={print} className="gap-2"><Printer size={16}/> طباعة / حفظ PDF</Button>
+      <Button onClick={print} className="gap-2 print:hidden"><Printer size={16}/> طباعة / حفظ PDF</Button>
     </div>
     <Card><CardHeader><CardTitle className="flex items-center gap-2"><CalendarDays size={19}/> إعداد التقرير</CardTitle><CardDescription>اختر نوع التقرير والفترة. يتم إعداد الأرقام من البيانات المتاحة في النظام، وتُعرض الالتزامات القانونية كتقديرات إلى أن تستكمل بيانات التسجيل والمراجعة.</CardDescription></CardHeader>
       <CardContent className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
