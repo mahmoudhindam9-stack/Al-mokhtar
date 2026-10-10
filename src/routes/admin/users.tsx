@@ -613,6 +613,16 @@ function UsersPage() {
     }
 
     if (editing) {
+      if (editing.username !== username) {
+        const state = erpStore.getState();
+        const permissionMap = { ...(state.userPermissions || {}) };
+        if (permissionMap[editing.username]) {
+          permissionMap[username] = permissionMap[editing.username];
+          delete permissionMap[editing.username];
+          state.userPermissions = permissionMap;
+        }
+        if (state.currentUser === editing.username) state.currentUser = username;
+      }
       erpStore.upsertUser({
         ...editing,
         full_name: form.full_name.trim(),
