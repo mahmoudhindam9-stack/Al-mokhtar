@@ -62,7 +62,6 @@ class GitHubUpdateService {
             repo = DEFAULT_GITHUB_REPO;
           }
           return {
-            repo,
             autoCheck: true,
             autoInstall: false,
             ...parsed,
