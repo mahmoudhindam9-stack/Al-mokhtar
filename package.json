@@ -16,7 +16,8 @@
     "verify:journal": "node scripts/verify-journal-numbering-and-account-report.cjs",
     "verify:cleanup": "node scripts/verify-cleanup.cjs",
     "format": "prettier --write .",
-    "test": "vitest"
+    "test": "vitest",
+    "serve:local": "node scripts/serve-static.cjs"
   },
   "dependencies": {
     "@google/genai": "^2.21.0",
