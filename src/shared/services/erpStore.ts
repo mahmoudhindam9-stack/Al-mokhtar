@@ -1043,6 +1043,19 @@ function clearLegacyAuthStorage() {
       // Storage can be unavailable in restricted browser contexts.
     }
   }
+  // Drop persisted Supabase browser sessions so they cannot become a second sign-in path.
+  for (const storage of [window.localStorage, window.sessionStorage]) {
+    try {
+      const authKeys: string[] = [];
+      for (let index = 0; index < storage.length; index++) {
+        const key = storage.key(index);
+        if (key && key.startsWith("sb-") && key.endsWith("-auth-token")) authKeys.push(key);
+      }
+      authKeys.forEach((key) => storage.removeItem(key));
+    } catch {
+      // Storage can be unavailable in restricted browser contexts.
+    }
+  }
 }
 
 // @ts-nocheck
