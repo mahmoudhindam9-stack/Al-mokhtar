@@ -22,7 +22,7 @@ import {
   Settings,
   Wrench,
 } from "lucide-react";
-import { erpStore, type SystemUser, type UserPermission } from "@/shared/services/erpStore";
+import { erpStore, type SystemUser } from "@/shared/services/erpStore";
 import { Button } from "@/components/ui/button";
 import { RestocashLogo } from "@/components/RestocashLogo";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
