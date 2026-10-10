@@ -225,7 +225,7 @@ export function AIAccountantPage() {
           <p className="text-sm text-muted-foreground mt-1">تقارير مالية قابلة للمراجعة والتصدير من سجلات المختار الفعلية</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Badge variant="outline" className="font-mono">الإصدار {report.source}</Badge>
+          <Badge variant="outline" className="font-mono">مصدر البيانات: {report.source}</Badge>
           <Button variant="outline" onClick={() => setErpState({ ...erpStore.getState() })} className="gap-2">
             <RefreshCw size={16}/> تحديث البيانات
           </Button>
