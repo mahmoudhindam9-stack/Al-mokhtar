@@ -6,23 +6,16 @@ ALTER TABLE public.profiles
 ALTER TABLE public.profiles
   ADD COLUMN IF NOT EXISTS permissions jsonb NOT NULL DEFAULT '{}'::jsonb;
 
--- Bring older app-created Supabase users into the shared directory if the previous
--- users page created their Auth identity without creating a profile row.
--- Existing profile roles are never overwritten; unrecognized accounts start as cashier.
-INSERT INTO public.profiles (id, username, full_name, phone, role, permissions, created_at, updated_at)
-SELECT
-  u.id,
-  lower(trim(coalesce(nullif(u.raw_user_meta_data ->> 'username', ''), split_part(coalesce(u.email, ''), '@', 1), 'user'))),
-  nullif(u.raw_user_meta_data ->> 'full_name', ''),
-  nullif(u.raw_user_meta_data ->> 'phone', ''),
-  'cashier',
-  '{}'::jsonb,
-  coalesce(u.created_at, now()),
-  coalesce(u.updated_at, now())
-FROM auth.users u
-WHERE lower(split_part(coalesce(u.email, ''), '@', 2)) IN ('restocash.local', 'almokhtar.local', 'mokhtar.local')
-  AND NOT EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = u.id)
-ON CONFLICT (id) DO NOTHING;
+-- Remove legacy Auth identities that are NOT present in the current Users page.
+-- Profiles already visible in the Users page are preserved, including the active administrator.
+-- This is intentionally a one-time purge: old orphaned accounts must be recreated from the
+-- Users page with a role and explicit permissions before they can access the ERP.
+DELETE FROM auth.users u
+WHERE lower(split_part(coalesce(u.email, ''), '@', 2))
+      IN ('restocash.local', 'almokhtar.local', 'mokhtar.local', 'restocash.com')
+  AND NOT EXISTS (
+    SELECT 1 FROM public.profiles p WHERE p.id = u.id
+  );
 
 -- Backfill usernames from existing profile values, auth metadata, or the login email.
 WITH source_rows AS (
@@ -192,4 +185,38 @@ CREATE POLICY "profiles_update_manager"
 CREATE POLICY "profiles_delete_manager"
   ON public.profiles FOR DELETE TO authenticated
   USING (public.current_user_can_manage_profiles());
+
+-- Permanently remove an account through the Users page. Auth deletion cascades
+-- to profiles and their cloud snapshots; never allow a user to delete themselves.
+CREATE OR REPLACE FUNCTION public.delete_managed_user(target_user_id uuid)
+RETURNS boolean
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $
+DECLARE
+  deleted_count integer;
+BEGIN
+  IF auth.uid() IS NULL OR NOT public.current_user_can_manage_profiles() THEN
+    RAISE EXCEPTION 'Insufficient permission to manage users';
+  END IF;
+
+  IF target_user_id = auth.uid() THEN
+    RAISE EXCEPTION 'You cannot delete the account you are currently using';
+  END IF;
+
+  DELETE FROM auth.users
+  WHERE id = target_user_id;
+
+  GET DIAGNOSTICS deleted_count = ROW_COUNT;
+  IF deleted_count = 0 THEN
+    RAISE EXCEPTION 'User account not found';
+  END IF;
+
+  RETURN true;
+END;
+$;
+
+REVOKE ALL ON FUNCTION public.delete_managed_user(uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.delete_managed_user(uuid) TO authenticated;
 
