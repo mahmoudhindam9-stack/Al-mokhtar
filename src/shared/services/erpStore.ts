@@ -1000,143 +1000,49 @@ const DEFAULT_SUPPLIERS: Supplier[] = ORACLE_MIGRATION_ACCOUNTS.filter(
   deleted: false,
 }));
 
-const DEFAULT_USERS: SystemUser[] = [
-  {
-    id: "u-admin",
-    full_name: "مدير النظام (Super Admin)",
-    username: "admin",
-    password: "123456",
-    phone: "01000000000",
-    role: "admin",
-    created_at: new Date().toISOString(),
-  },
-  {
-    id: "u-manager",
-    full_name: "مشرف الفرع",
-    username: "manager",
-    password: "123456",
-    phone: "01000000001",
-    role: "manager",
-    created_at: new Date().toISOString(),
-  },
-  {
-    id: "u-cashier",
-    full_name: "كاشير الصالة",
-    username: "cashier",
-    password: "123456",
-    phone: "01000000002",
-    role: "cashier",
-    created_at: new Date().toISOString(),
-  },
-];
+const DEFAULT_USERS: SystemUser[] = [];
+const DEFAULT_PERMISSIONS: Record<string, UserPermission> = {};
 
-const DEFAULT_PERMISSIONS: Record<string, UserPermission> = {
-  admin: {
-    orders: true,
-    pos: true,
-    captain: true,
-    kitchen: true,
-    delivery: true,
-    inventory: true,
-    hr: true,
-    purchasing: true,
-    production: true,
-    treasury: true,
-    accounting: true,
-    journal_approval: true,
-    expense_approval: true,
-    revenue_approval: true,
-    reports: true,
-    cost_centers: true,
-    branch_mgmt: true,
-    audit_logs: true,
-    users_roles: true,
-  },
-  manager: {
-    orders: true,
-    pos: true,
-    captain: true,
-    kitchen: true,
-    delivery: true,
-    inventory: true,
-    hr: true,
-    purchasing: true,
-    production: true,
-    treasury: false,
-    accounting: true,
-    journal_approval: false,
-    expense_approval: true,
-    revenue_approval: true,
-    reports: true,
-    cost_centers: true,
-    branch_mgmt: false,
-    audit_logs: false,
-    users_roles: false,
-  },
-  cashier: {
-    orders: true,
-    pos: true,
-    captain: true,
-    kitchen: true,
-    delivery: true,
-    inventory: false,
-    hr: false,
-    purchasing: false,
-    production: false,
-    treasury: false,
-    accounting: false,
-    journal_approval: false,
-    expense_approval: false,
-    revenue_approval: false,
-    reports: false,
-    cost_centers: false,
-    branch_mgmt: false,
-    audit_logs: false,
-    users_roles: false,
-  },
-  "admin@restaurant.com": {
-    orders: true,
-    pos: true,
-    captain: true,
-    kitchen: true,
-    delivery: true,
-    inventory: true,
-    hr: true,
-    purchasing: true,
-    production: true,
-    treasury: true,
-    accounting: true,
-    journal_approval: true,
-    expense_approval: true,
-    revenue_approval: true,
-    reports: true,
-    cost_centers: true,
-    branch_mgmt: true,
-    audit_logs: true,
-    users_roles: true,
-  },
-  "accountant@restaurant.com": {
-    orders: false,
-    pos: false,
-    captain: false,
-    kitchen: false,
-    delivery: false,
-    inventory: true,
-    hr: true,
-    purchasing: true,
-    production: true,
-    treasury: false,
-    accounting: true,
-    journal_approval: false,
-    expense_approval: true,
-    revenue_approval: true,
-    reports: true,
-    cost_centers: true,
-    branch_mgmt: false,
-    audit_logs: false,
-    users_roles: false,
-  },
-};
+const LEGACY_AUTH_USER_IDS = new Set(["u-admin", "u-manager", "u-cashier"]);
+const LEGACY_AUTH_USERNAMES = new Set([
+  "admin@restocash.com",
+  "admin@restocash.local",
+  "admin@mokhtar.com",
+  "admin@mokhtar.local",
+  "admin@juba.com",
+  "admin@restaurant.com",
+  "accountant@restaurant.com",
+]);
+
+function cleanSystemUsers(users: any): SystemUser[] {
+  if (!Array.isArray(users)) return [];
+  return users.filter((user: any) => {
+    if (!user || !String(user.id || "").trim() || !String(user.username || "").trim()) return false;
+    const id = String(user.id).trim();
+    const username = String(user.username).trim().toLowerCase();
+    return !LEGACY_AUTH_USER_IDS.has(id) && !LEGACY_AUTH_USERNAMES.has(username);
+  });
+}
+
+function cleanSystemUserPermissions(permissions: any, users: SystemUser[]): Record<string, UserPermission> {
+  if (!permissions || typeof permissions !== "object" || Array.isArray(permissions)) return {};
+  const allowedNames = new Set(users.map((user) => String(user.username || "").trim().toLowerCase()));
+  return Object.fromEntries(
+    Object.entries(permissions).filter(([username]) => allowedNames.has(String(username).trim().toLowerCase())),
+  ) as Record<string, UserPermission>;
+}
+
+function clearLegacyAuthStorage() {
+  if (typeof window === "undefined") return;
+  for (const key of ["restocash_auth_user", "restocash_user_role"]) {
+    try {
+      window.localStorage.removeItem(key);
+      window.sessionStorage.removeItem(key);
+    } catch {
+      // Storage can be unavailable in restricted browser contexts.
+    }
+  }
+}
 
 // @ts-nocheck
 export class ERPStore {
@@ -1144,6 +1050,17 @@ export class ERPStore {
   listeners = [];
   constructor() {
     this.state = this.loadState();
+    // Migrate once to the users-page-only authentication source and invalidate legacy sessions.
+    if (!this.state.user_auth_unified_v1) {
+      this.state.users = cleanSystemUsers(this.state.users);
+      this.state.userPermissions = cleanSystemUserPermissions(this.state.userPermissions, this.state.users);
+      if (!this.state.users.some((user) => user.username === this.state.currentUser)) {
+        this.state.currentUser = "";
+      }
+      this.state.user_auth_unified_v1 = true;
+      this.saveState();
+    }
+    clearLegacyAuthStorage();
     if (!this.state.park_sales_hard_zero_reset_v4_2026_09_03) {
       this.state.parkShifts = [];
       this.state.parkActiveShift = null;
@@ -1295,6 +1212,12 @@ export class ERPStore {
                     ? idbState.parkTicketTransactions || []
                     : [],
                   park_sales_hard_zero_reset_v4_2026_09_03: true,
+                  users: cleanSystemUsers(idbState.users || []),
+                  userPermissions: cleanSystemUserPermissions(idbState.userPermissions || {}, cleanSystemUsers(idbState.users || [])),
+                  currentUser: cleanSystemUsers(idbState.users || []).some((user) => user.username === idbState.currentUser)
+                    ? idbState.currentUser
+                    : "",
+                  user_auth_unified_v1: true,
                   maintenance_reset_2026_10_10: true,
                   maintenanceWorkOrders: idbState.maintenance_reset_2026_10_10
                     ? idbState.maintenanceWorkOrders || []
@@ -1517,9 +1440,15 @@ export class ERPStore {
             branch_id: "branch-1",
           })),
           reconciliations: loadedReconciliations,
-          userPermissions: parsed.userPermissions || DEFAULT_PERMISSIONS,
-          currentUser: parsed.currentUser || "admin",
-          users: parsed.users || DEFAULT_USERS,
+          users: cleanSystemUsers(parsed.users ?? DEFAULT_USERS),
+          userPermissions: cleanSystemUserPermissions(
+            parsed.userPermissions ?? DEFAULT_PERMISSIONS,
+            cleanSystemUsers(parsed.users ?? DEFAULT_USERS),
+          ),
+          currentUser: cleanSystemUsers(parsed.users ?? DEFAULT_USERS).some((user) => user.username === parsed.currentUser)
+            ? parsed.currentUser
+            : "",
+          user_auth_unified_v1: true,
           fiscalYearStatus: parsed.fiscalYearStatus || "open",
           inventorySettings: parsed.inventorySettings || {
             allowNegativeStock: true,
@@ -1684,9 +1613,10 @@ export class ERPStore {
       extendedInventoryItems: {},
       inventoryDocuments: [],
       reconciliations: [],
-      userPermissions: DEFAULT_PERMISSIONS,
-      currentUser: "admin",
-      users: DEFAULT_USERS,
+      userPermissions: {},
+      currentUser: "",
+      users: [],
+      user_auth_unified_v1: true,
       fiscalYearStatus: "open",
       inventorySettings: {
         allowNegativeStock: true,
