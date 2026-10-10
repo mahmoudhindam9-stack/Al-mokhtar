@@ -51,7 +51,7 @@ function withoutSensitiveFields(value: any): any {
 
   const safe: Record<string, any> = {};
   for (const [key, child] of Object.entries(value)) {
-    if (/(password|secret|access[_-]?token|refresh[_-]?token|api[_-]?key|authorization)/i.test(key)) {
+    if (/(password|secret|token|api[_-]?key|authorization)/i.test(key)) {
       continue;
     }
     safe[key] = withoutSensitiveFields(child);
@@ -235,17 +235,24 @@ async function syncOnce() {
   if (syncInProgress || typeof window === "undefined") return;
   if (currentStatus.kind === "conflict") return;
 
-  if (!navigator.onLine || !(await canReachCloud())) {
+  if (!navigator.onLine) {
     setStatus({
       kind: "offline",
-      message: "لا يوجد اتصال فعلي بالسحابة — بياناتك مستمرة في الحفظ محليًا",
+      message: "دون إنترنت — بياناتك مستمرة في الحفظ محليًا",
     });
     return;
   }
 
   syncInProgress = true;
-  setStatus({ kind: "syncing", message: "جاري مزامنة البيانات مع السحابة…" });
   try {
+    if (!(await canReachCloud())) {
+      setStatus({
+        kind: "offline",
+        message: "لا يوجد اتصال فعلي بالسحابة — بياناتك مستمرة في الحفظ محليًا",
+      });
+      return;
+    }
+    setStatus({ kind: "syncing", message: "جاري مزامنة البيانات مع السحابة…" });
     const user = await getAuthenticatedUser();
     if (!user) return;
 
