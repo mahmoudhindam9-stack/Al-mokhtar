@@ -3,6 +3,9 @@ name: Build Al Mokhtar Offline Package
 on:
   workflow_dispatch:
   push:
+    branches:
+      - main
+      - offline-first-sync
     tags:
       - "v*"
 
