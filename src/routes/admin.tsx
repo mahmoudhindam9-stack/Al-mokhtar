@@ -87,9 +87,10 @@ function defaultPermissionsForRole(role: string): Record<string, boolean> {
   return { orders: true, pos: true, captain: true, kitchen: true, delivery: true, orders_view: true, pos_access: true };
 }
 
-function permissionsForUser(user: { role?: string; permissions?: Record<string, any> } | null): Record<string, boolean> {
+function permissionsForUser(user: { role?: string; permissions?: Record<string, any>; permissionsManaged?: boolean } | null): Record<string, boolean> {
   const current = user?.permissions || {};
   if (current.super_admin_full_access === true) return defaultPermissionsForRole("super_admin");
+  if (user?.permissionsManaged) return current;
   return Object.keys(current).length > 0 ? current : defaultPermissionsForRole(user?.role || "cashier");
 }
 
@@ -108,7 +109,7 @@ export function AdminLayout({ children }: { children?: ReactNode }) {
   const location = useLocation();
   const navigate = useNavigate();
   const pathname = location.pathname;
-  const [user, setUser] = useState<{ email?: string; username?: string; role?: string; permissions?: Record<string, any> } | null>(null);
+  const [user, setUser] = useState<{ email?: string; username?: string; role?: string; permissions?: Record<string, any>; permissionsManaged?: boolean } | null>(null);
   const [authChecking, setAuthChecking] = useState(true);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
@@ -123,7 +124,7 @@ export function AdminLayout({ children }: { children?: ReactNode }) {
         || state.users?.find((item: any) => String(item.username || "").toLowerCase() === username)?.role
         || "cashier";
       const permissions = state.userPermissions?.[username] || state.userPermissions?.[role] || {};
-      return { email: storedUser, username, role, permissions };
+      return { email: storedUser, username, role, permissions, permissionsManaged: false };
     };
 
     const loadHostedProfile = async (session: any) => {
@@ -149,6 +150,7 @@ export function AdminLayout({ children }: { children?: ReactNode }) {
           username: String(profile.username).toLowerCase(),
           role: String(profile.role || "cashier"),
           permissions: (profile.permissions || {}) as Record<string, any>,
+          permissionsManaged: true,
         };
         if (!isMounted) return;
         erpStore.updateUserPermission(appUser.username, appUser.permissions);
@@ -230,6 +232,24 @@ export function AdminLayout({ children }: { children?: ReactNode }) {
       authListener?.subscription?.unsubscribe();
     };
   }, [navigate]);
+
+  useEffect(() => {
+    return erpStore.subscribe(() => {
+      setUser((current) => {
+        if (!current?.username) return current;
+        const state = erpStore.getState() as any;
+        const localRecord = (state.users || []).find(
+          (item: any) => String(item.username || "").toLowerCase() === String(current.username).toLowerCase(),
+        );
+        const permissions =
+          state.userPermissions?.[current.username] ||
+          localRecord?.permissions ||
+          current.permissions ||
+          {};
+        return { ...current, permissions };
+      });
+    });
+  }, []);
 
   const handleSignOut = async () => {
     localStorage.removeItem("restocash_auth_user");
