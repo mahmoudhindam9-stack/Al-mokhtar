@@ -891,9 +891,13 @@ function UsersPage() {
 
   const openPermissionsForUser = (user: SystemUser) => {
     setPermissionsUser(user);
+    const userSpecificStatePermissions = erpState.userPermissions[user.username];
+    const profilePermissions =
+      user.permissions && Object.keys(user.permissions).length > 0 ? user.permissions : null;
     const currentPerms =
-      (user.permissions && Object.keys(user.permissions).length > 0 ? user.permissions : null) ||
-      erpState.userPermissions[user.username] ||
+      (isHostedDeployment() ? profilePermissions : userSpecificStatePermissions) ||
+      profilePermissions ||
+      userSpecificStatePermissions ||
       defaultPermissionsForRole(user.role);
     setEditedPermissions({ ...currentPerms });
   };
@@ -1082,6 +1086,7 @@ function UsersPage() {
             <Input
               className="h-9 rounded-xl border-input bg-background px-3 text-xs mt-1"
               placeholder="مثال: admin"
+              disabled={!!editing && isHostedDeployment()}
               value={form.username}
               onChange={(e) => setForm((s) => ({ ...s, username: e.target.value }))}
             />
@@ -1100,6 +1105,7 @@ function UsersPage() {
             <Input
               type="password"
               className="h-9 rounded-xl border-input bg-background px-3 text-xs mt-1"
+              disabled={!!editing && isHostedDeployment()}
               placeholder={editing ? "اتركه فارغاً لعدم التغيير" : "الرقم السري"}
               value={form.password}
               onChange={(e) => setForm((s) => ({ ...s, password: e.target.value }))}
