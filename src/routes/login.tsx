@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -104,6 +104,63 @@ function LoginPage() {
   const [rememberMe, setRememberMe] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [hasLocalAccounts, setHasLocalAccounts] = useState(() => erpStore.getUsers().length > 0);
+  const [bootstrapFullName, setBootstrapFullName] = useState("");
+  const [bootstrapUsername, setBootstrapUsername] = useState("");
+  const [bootstrapPassword, setBootstrapPassword] = useState("");
+  const [bootstrapConfirm, setBootstrapConfirm] = useState("");
+
+  useEffect(() => {
+    return erpStore.subscribe(() => setHasLocalAccounts(erpStore.getUsers().length > 0));
+  }, []);
+
+  const createFirstLocalAdmin = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (isHostedDeployment()) return;
+
+    // IndexedDB may have restored existing user-page accounts after the initial render.
+    if (erpStore.getUsers().length > 0) {
+      setHasLocalAccounts(true);
+      setError("تم العثور على حسابات موجودة في صفحة المستخدمين. سجّل الدخول بهذه الحسابات.");
+      return;
+    }
+
+    const firstName = bootstrapFullName.trim();
+    const firstUsername = normalizeDigits(bootstrapUsername.trim().toLowerCase());
+    const firstPassword = normalizeDigits(bootstrapPassword);
+    const confirmPassword = normalizeDigits(bootstrapConfirm);
+    if (!firstName || !firstUsername || firstPassword.length < 8) {
+      setError("أدخل الاسم واسم المستخدم وكلمة مرور لا تقل عن 8 أحرف أو أرقام.");
+      return;
+    }
+    if (firstPassword !== confirmPassword) {
+      setError("تأكيد كلمة المرور غير مطابق.");
+      return;
+    }
+
+    const permissions = { super_admin_full_access: true, users_roles: true, system_manage_users: true, system_backup_update: true };
+    const initialUser: SystemUser = {
+      id: `u-${Date.now()}`,
+      full_name: firstName,
+      username: firstUsername,
+      phone: "",
+      role: "admin",
+      password: firstPassword,
+      permissions,
+      created_at: new Date().toISOString(),
+    };
+    erpStore.upsertUser(initialUser);
+    erpStore.updateUserPermission(firstUsername, permissions);
+    erpStore.setCurrentUser(firstUsername);
+    localStorage.removeItem("restocash_auth_user");
+    sessionStorage.removeItem("restocash_auth_user");
+    localStorage.setItem("remember_me", "true");
+    localStorage.setItem("restocash_auth_user", `${firstUsername}@almokhtar.local`);
+    localStorage.setItem("restocash_user_role", "admin");
+    setHasLocalAccounts(true);
+    navigate({ to: "/admin/users" });
+  };
+
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -190,6 +247,8 @@ function LoginPage() {
       const storage = rememberMe ? localStorage : sessionStorage;
       storage.setItem("restocash_auth_user", activeEmail);
       storage.setItem("restocash_user_role", user.role || "cashier");
+      const localPermissions = user.permissions || erpStore.getState().userPermissions[activeUsername] || erpStore.getState().userPermissions[user.role] || {};
+      erpStore.updateUserPermission(activeUsername, localPermissions);
       erpStore.setCurrentUser(activeUsername);
       void signInCloudAccount(activeUsername, password).catch(() => undefined);
       navigate({ to: destination as any });
@@ -200,6 +259,27 @@ function LoginPage() {
       setLoading(false);
     }
   };
+
+  if (!isHostedDeployment() && !hasLocalAccounts) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-4 relative" dir="rtl">
+        <div className="absolute top-4 left-4"><LanguageSwitcher /></div>
+        <form onSubmit={createFirstLocalAdmin} className="w-full max-w-md space-y-5 bg-card border border-border p-7 rounded-2xl shadow-elegant">
+          <div className="text-center space-y-2">
+            <RestocashLogo size={52} />
+            <h1 className="text-2xl font-black text-foreground">تهيئة حساب المدير الأول</h1>
+            <p className="text-sm text-muted-foreground">تم حذف حسابات الدخول الافتراضية القديمة. أنشئ حساب المدير الأول، ثم أدرج باقي الحسابات وصلاحياتها من صفحة المستخدمين.</p>
+          </div>
+          <div className="space-y-1.5"><Label>الاسم الكامل</Label><Input required value={bootstrapFullName} onChange={(e) => setBootstrapFullName(e.target.value)} autoComplete="name" /></div>
+          <div className="space-y-1.5"><Label>اسم المستخدم الجديد</Label><Input required value={bootstrapUsername} onChange={(e) => setBootstrapUsername(e.target.value)} autoComplete="username" dir="ltr" /></div>
+          <div className="space-y-1.5"><Label>كلمة المرور الجديدة (8 أحرف على الأقل)</Label><Input required type="password" minLength={8} value={bootstrapPassword} onChange={(e) => setBootstrapPassword(e.target.value)} autoComplete="new-password" dir="ltr" /></div>
+          <div className="space-y-1.5"><Label>تأكيد كلمة المرور</Label><Input required type="password" minLength={8} value={bootstrapConfirm} onChange={(e) => setBootstrapConfirm(e.target.value)} autoComplete="new-password" dir="ltr" /></div>
+          {error && <p role="alert" className="text-sm text-destructive bg-destructive/10 p-3 rounded-lg border border-destructive/20">{error}</p>}
+          <Button type="submit" className="w-full" disabled={loading}>إنشاء حساب المدير والمتابعة إلى إدارة المستخدمين</Button>
+        </form>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4 relative">
