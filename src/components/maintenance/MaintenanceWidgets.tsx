@@ -16,6 +16,18 @@ function useMaintenanceSnapshot() {
 const money = (value: number) =>
   new Intl.NumberFormat("ar-EG", { maximumFractionDigits: 2 }).format(value || 0);
 
+const MAINTENANCE_VIEW_KEYS = [
+  "maintenance_view", "maintenance_manage_requests", "maintenance_manage_preventive",
+  "maintenance_manage_custody", "maintenance_manage_stock", "maintenance_post_finance",
+  "maintenance_manage_buildings", "maintenance_export_reports",
+];
+
+function canCurrentUserViewMaintenance(state: any) {
+  const permissions = state.userPermissions?.[state.currentUser] || {};
+  return permissions.super_admin_full_access === true ||
+    MAINTENANCE_VIEW_KEYS.some((key) => permissions[key] === true);
+}
+
 export function MaintenanceHomeWidget() {
   const state = useMaintenanceSnapshot();
   const stats = useMemo(() => {
@@ -30,6 +42,8 @@ export function MaintenanceHomeWidget() {
       totalCost: orders.reduce((sum: number, item: any) => sum + (Number(item.laborCost) || 0) + (Number(item.partsCost) || 0), 0),
     };
   }, [state.maintenanceWorkOrders, state.maintenancePreventiveTasks, state.maintenanceCustodies]);
+
+  if (!canCurrentUserViewMaintenance(state)) return null;
 
   return (
     <Card className="mb-5 overflow-hidden border-border/70">
@@ -91,6 +105,8 @@ export function MaintenanceReportPanel() {
     };
   });
   const totalCost = orders.reduce((sum: number, item: any) => sum + (Number(item.laborCost) || 0) + (Number(item.partsCost) || 0), 0);
+
+  if (!canCurrentUserViewMaintenance(state)) return null;
 
   return (
     <Card className="mb-6 border-primary/20">
