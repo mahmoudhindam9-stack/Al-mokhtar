@@ -29,6 +29,29 @@ function normalizeDigits(str: string): string {
     .replace(/[٩۹]/g, "9");
 }
 
+function clearLegacyAuthStorage() {
+  if (typeof window === "undefined") return;
+  for (const key of ["restocash_auth_user", "restocash_user_role"]) {
+    try {
+      localStorage.removeItem(key);
+      sessionStorage.removeItem(key);
+    } catch {
+      // Storage can be unavailable in restricted browser contexts.
+    }
+  }
+}
+
+function clearAuthenticatedUserId() {
+  if (typeof window === "undefined") return;
+  localStorage.removeItem("restocash_authenticated_user_id");
+  sessionStorage.removeItem("restocash_authenticated_user_id");
+}
+
+function safeRedirectTarget(value: string | null): string {
+  if (!value || !value.startsWith("/") || value.startsWith("//")) return "/admin";
+  return value;
+}
+
 function LoginPage() {
   const navigate = useNavigate();
   const [username, setUsername] = useState("");
@@ -37,14 +60,20 @@ function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // Check if already authenticated and redirect accordingly
   useEffect(() => {
-    const localUser =
-      localStorage.getItem("restocash_auth_user") || sessionStorage.getItem("restocash_auth_user");
-    if (localUser) {
+    clearLegacyAuthStorage();
+    const storedId =
+      localStorage.getItem("restocash_authenticated_user_id") ||
+      sessionStorage.getItem("restocash_authenticated_user_id");
+    const activeUser = storedId
+      ? erpStore.getUsers().find((user) => user.id === storedId)
+      : undefined;
+
+    if (activeUser) {
       const searchParams = new URLSearchParams(window.location.search);
-      const redirectUrl = searchParams.get("redirect") || "/admin";
-      navigate({ to: redirectUrl });
+      navigate({ to: safeRedirectTarget(searchParams.get("redirect")) });
+    } else if (storedId) {
+      clearAuthenticatedUserId();
     }
   }, [navigate]);
 
@@ -53,148 +82,36 @@ function LoginPage() {
     setError(null);
     setLoading(true);
 
+    clearLegacyAuthStorage();
+    clearAuthenticatedUserId();
+
     const normalizedInputUser = normalizeDigits(username.trim().toLowerCase());
-    const rawPass = password;
-    const normalizedPass = normalizeDigits(rawPass);
-
-    // Save remember preference
-    localStorage.setItem("remember_me", rememberMe ? "true" : "false");
-
-    // Determine target redirect route
-    const searchParams = new URLSearchParams(window.location.search);
-    const customRedirect = searchParams.get("redirect");
-
-    // 1. Direct verify against Super Admin and System users in erpStore
-    const localUsers = erpStore.getUsers() as SystemUser[];
-    const matchedUser = localUsers.find((u) => {
-      if (!u) return false;
-      const uName = (u.username || "").trim().toLowerCase();
-      const uFullName = (u.full_name || "").trim().toLowerCase();
-      const uPhone = (u.phone || "").trim();
-
-      const userMatches =
-        uName === normalizedInputUser ||
-        `${uName}@mokhtar.com` === normalizedInputUser ||
-        `${uName}@mokhtar.local` === normalizedInputUser ||
-        `${uName}@restocash.com` === normalizedInputUser ||
-        `${uName}@restocash.local` === normalizedInputUser ||
-        `${uName}@juba.com` === normalizedInputUser ||
-        (normalizedInputUser.includes("@") && uName === normalizedInputUser.split("@")[0]);
-
-      const fullNameMatches = uFullName && uFullName === normalizedInputUser;
-      const phoneMatches = uPhone && normalizeDigits(uPhone) === normalizedInputUser;
-
-      return userMatches || fullNameMatches || phoneMatches;
+    const normalizedPassword = normalizeDigits(password);
+    const matchedUser = erpStore.getUsers().find((user) => {
+      const storedUsername = normalizeDigits(String(user?.username || "").trim().toLowerCase());
+      return Boolean(storedUsername) && storedUsername === normalizedInputUser;
     });
 
-    const isSuperAdminUser =
-      normalizedInputUser === "admin" ||
-      normalizedInputUser === "superadmin" ||
-      normalizedInputUser === "super_admin" ||
-      normalizedInputUser === "mokhtar" ||
-      normalizedInputUser === "admin@mokhtar.com" ||
-      normalizedInputUser === "admin@mokhtar.local" ||
-      normalizedInputUser === "admin@restocash.com" ||
-      normalizedInputUser === "admin@restocash.local" ||
-      normalizedInputUser === "admin@juba.com";
+    const passwordMatches =
+      !!matchedUser &&
+      typeof matchedUser.password === "string" &&
+      matchedUser.password.length > 0 &&
+      normalizeDigits(matchedUser.password) === normalizedPassword;
 
-    const isSuperAdminPass =
-      rawPass === "123456" ||
-      rawPass === "123" ||
-      normalizedPass === "123456" ||
-      normalizedPass === "123";
-
-    const isSuperAdminMatch = isSuperAdminUser && isSuperAdminPass;
-
-    let isUserMatch = false;
-    if (matchedUser) {
-      if (matchedUser.password) {
-        isUserMatch =
-          matchedUser.password === rawPass ||
-          matchedUser.password === normalizedPass ||
-          matchedUser.password === normalizeDigits(matchedUser.password);
-      } else {
-        // Default password fallback for users without explicit passwords
-        isUserMatch = isSuperAdminPass;
-      }
-    }
-
-    if (isSuperAdminMatch || isUserMatch) {
-      const activeUsername = matchedUser ? matchedUser.username : "admin";
-      const activeRole = matchedUser ? matchedUser.role : "admin";
-      const activeEmail = activeUsername.includes("@")
-        ? activeUsername
-        : `${activeUsername}@restocash.com`;
-
-      // Persist auth session
-      localStorage.setItem("restocash_auth_user", activeEmail);
-      localStorage.setItem("restocash_user_role", activeRole);
-      if (!rememberMe) {
-        sessionStorage.setItem("restocash_auth_user", activeEmail);
-      }
-      erpStore.setCurrentUser(activeUsername);
-
-      // Non-blocking Supabase auth sync in background if credentials match remote profile
-      supabase.auth
-        .signInWithPassword({
-          email: activeEmail,
-          password: rawPass,
-        })
-        .catch(() => {
-          // Local ERP authentication takes precedence
-        });
-
+    if (!matchedUser || !passwordMatches) {
       setLoading(false);
-
-      // Determine appropriate post-login route
-      const destination = customRedirect || "/admin";
-      navigate({ to: destination });
+      setError("اسم المستخدم أو كلمة المرور غير صحيحة، أو أن الحساب غير موجود في صفحة المستخدمين.");
       return;
     }
 
-    // 2. Fallback to Supabase Auth if external cloud credentials provided
-    const emailToLogin = normalizedInputUser.includes("@")
-      ? normalizedInputUser
-      : `${normalizedInputUser}@restocash.com`;
-
-    try {
-      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-        email: emailToLogin,
-        password: rawPass,
-      });
-
-      if (signInData?.session) {
-        const userEmail = signInData.session.user.email || emailToLogin;
-        const userRole =
-          (signInData.session.user.user_metadata?.role as string) ||
-          (signInData.session.user.app_metadata?.role as string) ||
-          "admin";
-
-        localStorage.setItem("restocash_auth_user", userEmail);
-        localStorage.setItem("restocash_user_role", userRole);
-        if (!rememberMe) {
-          sessionStorage.setItem("restocash_auth_user", userEmail);
-        }
-        erpStore.setCurrentUser(userEmail.split("@")[0]);
-
-        setLoading(false);
-
-        const destination = customRedirect || "/admin";
-        navigate({ to: destination });
-        return;
-      }
-
-      if (signInError) {
-        setLoading(false);
-        setError("اسم المستخدم أو كلمة المرور غير صحيحة");
-        return;
-      }
-    } catch {
-      // Supabase connection fallback
-    }
+    localStorage.setItem("remember_me", rememberMe ? "true" : "false");
+    const storage = rememberMe ? localStorage : sessionStorage;
+    storage.setItem("restocash_authenticated_user_id", matchedUser.id);
+    erpStore.setCurrentUser(matchedUser.username);
 
     setLoading(false);
-    setError("اسم المستخدم أو كلمة المرور غير صحيحة");
+    const searchParams = new URLSearchParams(window.location.search);
+    navigate({ to: safeRedirectTarget(searchParams.get("redirect")) });
   };
 
   return (
@@ -217,7 +134,7 @@ function LoginPage() {
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               required
-              placeholder="admin"
+              placeholder="اسم المستخدم الموجود في صفحة المستخدمين"
               className="mt-1"
               autoFocus
             />
