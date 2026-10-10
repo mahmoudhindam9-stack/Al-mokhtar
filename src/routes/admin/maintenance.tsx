@@ -175,22 +175,63 @@ function MaintenancePage() {
   const [facilityDrafts, setFacilityDrafts] = useState<Record<string, string>>({});
   const [financeOrderId, setFinanceOrderId] = useState<string | null>(null);
   const [financeTreasuryId, setFinanceTreasuryId] = useState("");
+  const [editingFacility, setEditingFacility] = useState<any>(null);
+  const [qrModalData, setQrModalData] = useState<any>(null);
+  const [maintenanceWarehouse, setMaintenanceWarehouse] = useState<any>(null);
+  const [maintenanceInventoryItems, setMaintenanceInventoryItems] = useState<any[]>([]);
+  const [maintenanceWarehouseStock, setMaintenanceWarehouseStock] = useState<any[]>([]);
+  const [warehouseLoadError, setWarehouseLoadError] = useState("");
+  const [showStockItemForm, setShowStockItemForm] = useState(false);
+  const [stockItemForm, setStockItemForm] = useState({
+    name_ar: "", unit: "قطعة", quantity: "0", min_level: "0", cost: "0", category: "قطع غيار صيانة",
+  });
+  const [isSavingStockItem, setIsSavingStockItem] = useState(false);
+  const [issueOrderId, setIssueOrderId] = useState<string | null>(null);
+  const [issueForm, setIssueForm] = useState({ inventoryId: "", quantity: "1" });
+  const [isIssuingPart, setIsIssuingPart] = useState(false);
 
   useEffect(() => {
-    // Guard against older local/IndexedDB snapshots that predate the maintenance reset.
     const state = erpStore.getState() as any;
-    if (!state.maintenance_reset_2026_10_10) {
+    if (!state.maintenance_tree_map_v2) {
+      const currentFacilities = Array.isArray(state.maintenanceFacilities) && state.maintenanceFacilities.length
+        ? state.maintenanceFacilities.map((facility: any, index: number) => ({
+            ...facility,
+            facilityNumber: Number(facility.facilityNumber) || index + 1,
+            subFacilities: normalizeBranchTree(facility.subFacilities || []),
+          }))
+        : INITIAL_BUILDINGS.map((facility) => ({ ...facility, subFacilities: [] }));
       erpStore.state = {
         ...state,
-        maintenance_reset_2026_10_10: true,
-        maintenanceWorkOrders: [],
-        maintenancePreventiveTasks: [],
-        maintenanceCustodies: [],
-        maintenanceFacilities: INITIAL_BUILDINGS.map((building) => ({ ...building })),
+        maintenance_tree_map_v2: true,
+        maintenanceFacilities: currentFacilities,
+        maintenanceWorkOrders: Array.isArray(state.maintenanceWorkOrders) ? state.maintenanceWorkOrders : [],
+        maintenancePreventiveTasks: Array.isArray(state.maintenancePreventiveTasks) ? state.maintenancePreventiveTasks : [],
+        maintenanceCustodies: Array.isArray(state.maintenanceCustodies) ? state.maintenanceCustodies : [],
       };
       erpStore.saveState();
-      erpStore.logAction("ADMIN", "تهيئة قسم الصيانة", "تم إنشاء قسم الصيانة ببيانات جديدة وثلاثة مبانٍ فارغة", "SYSTEM");
+      erpStore.logAction("ADMIN", "تهيئة خريطة الصيانة المتفرعة", "تم تحديث بنية خريطة الصيانة لدعم الفروع المتداخلة مع الاحتفاظ بالسجلات الحالية", "SYSTEM");
     }
+
+    let mounted = true;
+    const loadMaintenanceWarehouse = async () => {
+      try {
+        setWarehouseLoadError("");
+        const warehouse = await inventoryService.ensureMaintenanceWarehouse();
+        const [items, stock] = await Promise.all([
+          inventoryService.getInventory(),
+          inventoryService.getWarehouseInventory(warehouse.id),
+        ]);
+        if (!mounted) return;
+        setMaintenanceWarehouse(warehouse);
+        setMaintenanceInventoryItems(items || []);
+        setMaintenanceWarehouseStock(stock || []);
+      } catch (error: any) {
+        if (!mounted) return;
+        setWarehouseLoadError(error?.message || "تعذر تحميل مخزن الصيانة");
+      }
+    };
+    void loadMaintenanceWarehouse();
+    return () => { mounted = false; };
   }, []);
 
   const orders = erpState.maintenanceWorkOrders || [];
@@ -208,10 +249,11 @@ function MaintenancePage() {
     ? erpState.userPermissions?.[activeSystemUser.username] || {}
     : {};
   const isAdmin = permissions.super_admin_full_access === true;
+  const canManageStock = isAdmin || !!permissions.maintenance_manage_stock || !!permissions.inventory_adjust_transfer;
   const canView = isAdmin || !!(
     permissions.maintenance_view || permissions.maintenance_manage_requests ||
     permissions.maintenance_manage_preventive || permissions.maintenance_manage_custody ||
-    permissions.maintenance_post_finance || permissions.maintenance_manage_buildings
+    permissions.maintenance_manage_stock || permissions.maintenance_post_finance || permissions.maintenance_manage_buildings
   );
   const canManageRequests = isAdmin || !!permissions.maintenance_manage_requests;
   const canManagePreventive = isAdmin || !!permissions.maintenance_manage_preventive;
