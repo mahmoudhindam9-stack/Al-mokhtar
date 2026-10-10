@@ -136,6 +136,11 @@ export const inventoryService = {
           if (index === -1) merged.push(localRow);
           else merged[index] = { ...merged[index], quantity: localRow.quantity, min_level: localRow.min_level, updated_at: localRow.updated_at };
         }
+        // Mirror remote maintenance stock into the local warehouse cache so offline issues use the same balance.
+        const localAllRows = localWarehouseStore.getWarehouseInventory();
+        const localNonMaintenanceRows = localAllRows.filter((row) => !maintenanceIds.includes(row.warehouse_id));
+        const mergedMaintenanceRows = merged.filter((row) => maintenanceIds.includes(row.warehouse_id));
+        localWarehouseStore.saveWarehouseInventory([...localNonMaintenanceRows, ...mergedMaintenanceRows]);
         return warehouseId ? merged.filter((row) => row.warehouse_id === warehouseId) : merged;
       }
     } catch {
