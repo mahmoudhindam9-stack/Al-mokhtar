@@ -32,15 +32,42 @@ function safeInternalRedirect(value: string | null): string {
   return value && value.startsWith("/") && !value.startsWith("//") ? value : "/admin";
 }
 
+async function signInHostedAdminAccount(username: string, password: string) {
+  const normalized = username.trim().toLowerCase();
+  const candidates = normalized.includes("@")
+    ? [normalized]
+    : [
+        `${normalized}@restocash.local`,
+        `${normalized}@almokhtar.local`,
+        `${normalized}@mokhtar.local`,
+        `${normalized}@restocash.com`,
+      ];
+  for (const email of Array.from(new Set(candidates))) {
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error || !data?.session) continue;
+      const role = String(data.session.user.app_metadata?.role || "");
+      if (["admin", "super_admin"].includes(role)) {
+        return { session: data.session, email, role };
+      }
+      // Never leave a session authenticated if it lacks the required administrator role.
+      await supabase.auth.signOut().catch(() => undefined);
+    } catch {
+      // Try the next supported legacy email suffix.
+    }
+  }
+  return null;
+}
+
 async function signInCloudAccount(username: string, password: string) {
   if (typeof navigator !== "undefined" && !navigator.onLine) return null;
   const normalized = username.trim().toLowerCase();
   const base = normalized.includes("@") ? normalized.split("@")[0] : normalized;
   const candidates = Array.from(new Set([
-    normalized.includes("@") ? normalized : `${base}@almokhtar.local`,
+    normalized.includes("@") ? normalized : `${base}@restocash.local`,
+    `${base}@almokhtar.local`,
     `${base}@mokhtar.local`,
     `${base}@restocash.com`,
-    `${base}@restocash.local`,
   ].filter(Boolean)));
   for (const email of candidates) {
     try {
@@ -76,21 +103,13 @@ function LoginPage() {
       // The local default account must never grant access to the hosted ERP.
       if (isHostedDeployment()) {
         localStorage.setItem("remember_me", rememberMe ? "true" : "false");
-        const email = normalizedUsername.includes("@")
-          ? normalizedUsername
-          : `${normalizedUsername}@almokhtar.local`;
-        const { data, error: signInError } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
-        const role = String(data.session?.user.app_metadata?.role || "");
-        if (signInError || !data.session || !["admin", "super_admin"].includes(role)) {
-          if (data.session) await supabase.auth.signOut().catch(() => undefined);
-          setError("تعذر الدخول السحابي. تحقق من بيانات الدخول وصلاحية المدير في مشروع Supabase الجديد.");
+        const authenticated = await signInHostedAdminAccount(normalizedUsername, password);
+        if (!authenticated) {
+          setError("تعذر الدخول السحابي. تحقق من بيانات الدخول وصلاحية المدير في مشروع Supabase.");
           return;
         }
-
-        const activeEmail = data.session.user.email || email;
+        const { session, role, email } = authenticated;
+        const activeEmail = session.user.email || email;
         localStorage.removeItem("restocash_auth_user");
         sessionStorage.removeItem("restocash_auth_user");
         const storage = rememberMe ? localStorage : sessionStorage;
