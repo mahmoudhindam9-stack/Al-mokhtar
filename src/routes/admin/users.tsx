@@ -73,6 +73,12 @@ function profileToSystemUser(profile: any): SystemUser {
   };
 }
 
+function localLoginUsers(): SystemUser[] {
+  return erpStore.getUsers().filter(
+    (user) => typeof user.password === "string" && user.password.length > 0,
+  );
+}
+
 function isActiveUserRecord(user: SystemUser | null | undefined): boolean {
   if (!user) return false;
   const activeValue =
@@ -607,7 +613,7 @@ function defaultPermissionsForRole(role: string): UserPermission {
 function UsersPage() {
   const { toast } = useToast();
   const [erpState, setErpState] = useState(erpStore.getState());
-  const [localUsers, setLocalUsers] = useState(erpStore.getUsers());
+  const [localUsers, setLocalUsers] = useState(isHostedDeployment() ? [] : localLoginUsers());
 
   // Delete User State
   const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
@@ -680,7 +686,7 @@ function UsersPage() {
     const refreshLocalState = () => {
       if (!mounted) return;
       setErpState(erpStore.getState());
-      if (!hosted) setLocalUsers(erpStore.getUsers());
+      if (!hosted) setLocalUsers(localLoginUsers());
     };
     const unsubscribe = erpStore.subscribe(refreshLocalState);
 
@@ -701,7 +707,7 @@ function UsersPage() {
           }
         });
     } else {
-      setLocalUsers(erpStore.getUsers());
+      setLocalUsers(localLoginUsers());
     }
 
     return () => {
