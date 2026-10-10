@@ -1030,6 +1030,24 @@ const DEFAULT_USERS: SystemUser[] = [
   },
 ];
 
+/**
+ * Keep any existing local accounts intact, but recover the bundled defaults
+ * when stored browser/IndexedDB state has no usable local credentials.
+ * Remote-only users do not contain a local password and cannot authenticate offline.
+ */
+function ensureLocalLoginUsers(users: unknown): SystemUser[] {
+  if (!Array.isArray(users)) return DEFAULT_USERS;
+  const hasUsableLocalAccount = users.some(
+    (user: any) =>
+      user &&
+      typeof user.username === "string" &&
+      user.username.trim().length > 0 &&
+      typeof user.password === "string" &&
+      user.password.length > 0,
+  );
+  return hasUsableLocalAccount ? (users as SystemUser[]) : DEFAULT_USERS;
+}
+
 const DEFAULT_PERMISSIONS: Record<string, UserPermission> = {
   admin: {
     orders: true,
@@ -1285,6 +1303,7 @@ export class ERPStore {
                 this.state = {
                   ...this.getDefaultState(),
                   ...idbState,
+                  users: ensureLocalLoginUsers(idbState.users),
                   parkShifts: idbState.park_sales_hard_zero_reset_v4_2026_09_03
                     ? cleanedIdbShifts
                     : [],
@@ -1519,7 +1538,7 @@ export class ERPStore {
           reconciliations: loadedReconciliations,
           userPermissions: parsed.userPermissions || DEFAULT_PERMISSIONS,
           currentUser: parsed.currentUser || "admin",
-          users: parsed.users || DEFAULT_USERS,
+          users: ensureLocalLoginUsers(parsed.users),
           fiscalYearStatus: parsed.fiscalYearStatus || "open",
           inventorySettings: parsed.inventorySettings || {
             allowNegativeStock: true,
