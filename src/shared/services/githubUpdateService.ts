@@ -388,8 +388,10 @@ class GitHubUpdateService {
         };
       }
 
-      const opened = window.open(targetUrl, "_blank", "noopener,noreferrer");
-      if (!opened) {
+      const opened = window.open(targetUrl, "_blank");
+      if (opened) {
+        opened.opener = null;
+      } else {
         window.location.href = targetUrl;
       }
       return {
