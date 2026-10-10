@@ -1,4 +1,4 @@
-name: Build Al-Mokhtar Offline Windows Package
+name: Build Al-Mokhtar Install and Uninstall Package
 
 on:
   workflow_dispatch:
@@ -10,63 +10,134 @@ permissions:
   contents: read
 
 jobs:
-  build-offline-package:
+  build-installer:
     runs-on: windows-latest
-    timeout-minutes: 35
+    timeout-minutes: 40
     steps:
       - name: Check out source
         uses: actions/checkout@v4
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: "22"
           cache: npm
-      - name: Install dependencies and repair optional native binding
+
+      - name: Install dependencies and repair Windows native binding
         shell: pwsh
         run: |
           npm install --include=optional --no-audit --no-fund
-          if ($LASTEXITCODE -ne 0) { throw "npm install failed." }
+          if ($LASTEXITCODE -ne 0) { throw "Dependency installation failed." }
+          npm install --no-save --no-package-lock --include=optional --no-audit --no-fund nitro "@rolldown/binding-win32-x64-msvc@1.2.7"
+          if ($LASTEXITCODE -ne 0) { throw "Nitro or the Windows build binding could not be installed." }
           if (-not (Test-Path "node_modules/@rolldown/binding-win32-x64-msvc")) {
-            npm install --no-save --no-package-lock --no-audit --no-fund "@rolldown/binding-win32-x64-msvc@1.2.7"
-            if ($LASTEXITCODE -ne 0) { throw "The Windows Rolldown native binding could not be installed." }
+            throw "The Windows Rolldown binding is missing."
           }
-          if (-not (Test-Path "node_modules/@rolldown/binding-win32-x64-msvc")) {
-            throw "The Windows Rolldown native binding is still missing."
-          }
-      - name: Build production assets and refresh route tree
+
+      - name: Build client and refresh generated routes
         shell: pwsh
         run: |
           npm run build
-          if ($LASTEXITCODE -ne 0) { throw "Production build failed." }
-          if (-not (Test-Path "dist/index.html")) { throw "dist/index.html missing." }
-      - name: Verify types
+          if ($LASTEXITCODE -ne 0) { throw "Client build failed." }
+          if (-not (Test-Path "dist/index.html")) { throw "dist/index.html is missing." }
+
+      - name: TypeScript validation
         shell: pwsh
         run: |
           npm run typecheck
           if ($LASTEXITCODE -ne 0) { throw "TypeScript validation failed." }
-      - name: Assemble offline Windows package
+
+      - name: Build standalone server
         shell: pwsh
         run: |
-          $stage = Join-Path $env:GITHUB_WORKSPACE "offline-stage"
-          New-Item -ItemType Directory -Force -Path $stage | Out-Null
-          New-Item -ItemType Directory -Force -Path (Join-Path $stage "runtime") | Out-Null
-          New-Item -ItemType Directory -Force -Path (Join-Path $stage "scripts") | Out-Null
-          Copy-Item "dist" (Join-Path $stage "dist") -Recurse -Force
-          Copy-Item "scripts/serve-static.cjs" (Join-Path $stage "scripts/serve-static.cjs") -Force
-          Copy-Item "start-app.bat" (Join-Path $stage "start-app.bat") -Force
-          Copy-Item "setup.bat" (Join-Path $stage "setup.bat") -Force
-          Copy-Item "setup.ps1" (Join-Path $stage "setup.ps1") -Force
-          Copy-Item "OFFLINE-README.txt" (Join-Path $stage "README-FIRST.txt") -Force
-          $nodeExecutable = (Get-Command node).Source
-          Copy-Item $nodeExecutable (Join-Path $stage "runtime/node.exe") -Force
-          if (-not (Test-Path (Join-Path $stage "dist/index.html"))) { throw "dist/index.html missing in package." }
-          if (-not (Test-Path (Join-Path $stage "dist/favicon.ico"))) { throw "dist/favicon.ico missing in package." }
-          if (-not (Test-Path (Join-Path $stage "runtime/node.exe"))) { throw "runtime/node.exe missing in package." }
-          Compress-Archive -Path (Join-Path $stage "*") -DestinationPath (Join-Path $env:GITHUB_WORKSPACE "Al-Mokhtar-Offline.zip") -Force
-      - name: Upload offline package artifact
+          npm run build:vercel
+          if ($LASTEXITCODE -ne 0) { throw "Standalone server build failed." }
+          if (-not (Test-Path ".output/server/index.mjs")) { throw ".output/server/index.mjs was not generated." }
+          if (-not (Test-Path ".output/public/index.html")) { throw ".output/public/index.html was not generated." }
+
+      - name: Assemble self-contained two-file installer
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $payload = Join-Path $env:RUNNER_TEMP "Al-Mokhtar-Payload"
+          $runtimeDir = Join-Path $payload "runtime"
+          New-Item -ItemType Directory -Force -Path $runtimeDir | Out-Null
+          Copy-Item ".output" (Join-Path $payload ".output") -Recurse -Force
+          Copy-Item "start-app.bat" (Join-Path $payload "start-app.bat") -Force
+
+          $nodeVersion = (& node --version).Trim()
+          $runtimeZipName = "node-$nodeVersion-win-x64.zip"
+          $runtimeZip = Join-Path $env:RUNNER_TEMP $runtimeZipName
+          $runtimeExtract = Join-Path $env:RUNNER_TEMP "Al-Mokhtar-Node-Runtime"
+          Invoke-WebRequest -Uri "https://nodejs.org/dist/$nodeVersion/$runtimeZipName" -OutFile $runtimeZip -TimeoutSec 180
+          Expand-Archive -LiteralPath $runtimeZip -DestinationPath $runtimeExtract -Force
+          $runtimeSource = Join-Path $runtimeExtract "node-$nodeVersion-win-x64"
+          Copy-Item (Join-Path $runtimeSource "*") $runtimeDir -Recurse -Force
+
+          if (-not (Test-Path (Join-Path $payload ".output/server/index.mjs"))) { throw "The server entry is missing from the payload." }
+          if (-not (Test-Path (Join-Path $runtimeDir "node.exe"))) { throw "The portable Node runtime is missing." }
+          $payloadZip = Join-Path $env:RUNNER_TEMP "Al-Mokhtar-Payload.zip"
+          Compress-Archive -Path (Join-Path $payload "*") -DestinationPath $payloadZip -CompressionLevel Optimal -Force
+
+          $outerStage = Join-Path $env:RUNNER_TEMP "Al-Mokhtar-Installer"
+          New-Item -ItemType Directory -Force -Path $outerStage | Out-Null
+          $installer = Join-Path $outerStage "Install.bat"
+          $header = @'
+          @echo off
+          setlocal
+          title المختار لإدارة المشروعات - Install
+          echo.
+          echo جاري تثبيت المختار لإدارة المشروعات...
+          powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -Command "$self='%~f0';$text=[IO.File]::ReadAllText($self);$marker=':AL_MOKHTAR_EMBEDDED_PAYLOAD:';$index=$text.LastIndexOf($marker);if($index -lt 0){throw 'Installer payload is missing'};$encoded=($text.Substring($index+$marker.Length) -replace '\s','');$zip=Join-Path $env:TEMP ('AlMokhtar-'+[guid]::NewGuid().ToString('N')+'.zip');[IO.File]::WriteAllBytes($zip,[Convert]::FromBase64String($encoded));$root=Join-Path $env:LOCALAPPDATA 'Programs\Al-Mokhtar';if(Test-Path $root){$entry=Join-Path $root '.output\server\index.mjs';Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -and $entry -and $_.CommandLine.Contains($entry) } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue };Remove-Item $root -Recurse -Force};New-Item -ItemType Directory -Force -Path $root | Out-Null;Expand-Archive -LiteralPath $zip -DestinationPath $root -Force;Remove-Item $zip -Force;$sourceDir=Split-Path $self -Parent;Copy-Item (Join-Path $sourceDir 'Uninstall.bat') (Join-Path $root 'Uninstall.bat') -Force;$desktop=[Environment]::GetFolderPath('Desktop');$menu=Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\المختار لإدارة المشروعات';New-Item -ItemType Directory -Force -Path $menu | Out-Null;$shell=New-Object -ComObject WScript.Shell;$icon=Join-Path $root '.output\public\favicon.ico';foreach($shortcutPath in @((Join-Path $desktop 'المختار لإدارة المشروعات.lnk'),(Join-Path $menu 'المختار لإدارة المشروعات.lnk'))){$shortcut=$shell.CreateShortcut($shortcutPath);$shortcut.TargetPath=Join-Path $root 'start-app.bat';$shortcut.WorkingDirectory=$root;$shortcut.Description='المختار لإدارة المشروعات';if(Test-Path $icon){$shortcut.IconLocation=$icon+',0'};$shortcut.Save()};$uninstall=$shell.CreateShortcut((Join-Path $menu 'إلغاء تثبيت المختار.lnk'));$uninstall.TargetPath=Join-Path $root 'Uninstall.bat';$uninstall.WorkingDirectory=$root;$uninstall.Save();Start-Process -FilePath (Join-Path $root 'start-app.bat') -WorkingDirectory $root"
+          if errorlevel 1 (
+            echo.
+            echo فشل التثبيت. راجع رسالة الخطأ ثم حاول مرة أخرى.
+            pause
+            exit /b 1
+          )
+          echo تم التثبيت بنجاح.
+          exit /b 0
+          :AL_MOKHTAR_EMBEDDED_PAYLOAD:
+          '@
+          $base64 = [Convert]::ToBase64String([IO.File]::ReadAllBytes($payloadZip))
+          $writer = [System.IO.StreamWriter]::new($installer, $false, [System.Text.Encoding]::ASCII)
+          try {
+            $writer.Write($header.TrimStart([char]13,[char]10))
+            $writer.WriteLine()
+            for ($i = 0; $i -lt $base64.Length; $i += 120) {
+              $count = [Math]::Min(120, $base64.Length - $i)
+              $writer.WriteLine($base64.Substring($i, $count))
+            }
+          } finally {
+            $writer.Dispose()
+          }
+
+          Copy-Item "Uninstall.bat" (Join-Path $outerStage "Uninstall.bat") -Force
+          $outerZip = Join-Path $env:GITHUB_WORKSPACE "Al-Mokhtar-Install-Uninstall.zip"
+          Compress-Archive -Path (Join-Path $outerStage "*") -DestinationPath $outerZip -CompressionLevel Optimal -Force
+
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          $archive = [System.IO.Compression.ZipFile]::OpenRead($outerZip)
+          try {
+            $entries = @($archive.Entries | Where-Object { -not $_.FullName.EndsWith("/") })
+            if ($entries.Count -ne 2 -or (@($entries | Where-Object { $_.Name -eq "Install.bat" }).Count -ne 1) -or (@($entries | Where-Object { $_.Name -eq "Uninstall.bat" }).Count -ne 1)) {
+              throw "The final ZIP must contain exactly Install.bat and Uninstall.bat."
+            }
+          } finally {
+            $archive.Dispose()
+          }
+
+      - name: Upload Install and Uninstall ZIP
         uses: actions/upload-artifact@v4
         with:
-          name: Al-Mokhtar-Offline
-          path: Al-Mokhtar-Offline.zip
+          name: Al-Mokhtar-Install-Uninstall
+          path: Al-Mokhtar-Install-Uninstall.zip
           if-no-files-found: error
           retention-days: 30
+
+      - name: Attach installer to tagged release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: Al-Mokhtar-Install-Uninstall.zip
+          generate_release_notes: true
