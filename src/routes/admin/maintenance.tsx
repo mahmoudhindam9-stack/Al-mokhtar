@@ -135,17 +135,13 @@ function MaintenancePage() {
   const employees = erpState.employees || [];
   const inventoryItems = Object.values(erpState.extendedInventoryItems || {});
   const treasuries = (erpState.treasuries || []).filter((item: any) => item.is_open !== false && item.status !== "closed" && item.currency !== "MULTI");
-  const currentUserEmail = typeof window !== "undefined"
-    ? localStorage.getItem("restocash_auth_user") || sessionStorage.getItem("restocash_auth_user") || ""
-    : "";
-  const currentUsername = currentUserEmail.split("@")[0].toLowerCase();
-  const currentRole = typeof window !== "undefined"
-    ? (localStorage.getItem("restocash_user_role") || "").toLowerCase()
-    : "";
-  const permissions = erpState.userPermissions?.[currentUserEmail] || erpState.userPermissions?.[currentUsername] || {};
-  const isAdmin = ["admin", "super_admin", "superadmin", "owner"].includes(currentRole) ||
-    ["admin", "super_admin", "superadmin", "mokhtar"].includes(currentUsername) ||
-    !!permissions.super_admin_full_access;
+  const currentUsername = String(erpState.currentUser || "").trim();
+  const activeSystemUser = (erpState.users || []).find((user: any) => user.username === currentUsername);
+  const currentUserEmail = activeSystemUser?.username || "";
+  const permissions = activeSystemUser
+    ? erpState.userPermissions?.[activeSystemUser.username] || {}
+    : {};
+  const isAdmin = permissions.super_admin_full_access === true;
   const canView = isAdmin || !!(
     permissions.maintenance_view || permissions.maintenance_manage_requests ||
     permissions.maintenance_manage_preventive || permissions.maintenance_manage_custody ||
