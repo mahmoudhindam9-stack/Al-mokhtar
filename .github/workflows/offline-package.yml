@@ -3,7 +3,7 @@ name: Build Al-Mokhtar Install and Uninstall Package
 on:
   workflow_dispatch:
   push:
-    branches: [main, integration/reconcile-failed-commits]
+    branches: [main, integration/reconcile-failed-commits, fix/users-page-auth-permissions-2026-10-10]
     tags: ["v*"]
 
 permissions:
