@@ -41,7 +41,7 @@ export const Route = createFileRoute("/admin")({
 });
 
 const nav = [
-  { to: "/admin", label: "الرئيسية", icon: LayoutDashboard, exact: true, permissionKeys: [] },
+  { to: "/admin", label: "الرئيسية", icon: LayoutDashboard, exact: true, permissionKeys: ["orders", "pos", "captain", "kitchen", "delivery", "inventory", "accounting", "treasury", "hr", "reports", "maintenance_view", "mall_manage_shops", "purchasing"] },
   { to: "/admin/maintenance", label: "قسم الصيانة", icon: Wrench, permissionKeys: ["maintenance_view", "maintenance_manage_requests", "maintenance_manage_preventive", "maintenance_manage_custody", "maintenance_post_finance", "maintenance_manage_buildings", "maintenance_export_reports"] },
   { to: "/admin/mall", label: "إدارة المول والوحدات", icon: Building2, permissionKeys: ["mall_manage_shops", "mall_garden_finance"] },
   { to: "/admin/financial", label: "قسم الإدارة المالية", icon: Landmark, permissionKeys: ["accounting", "accounting_view", "treasury", "journal_approval", "expense_approval", "revenue_approval", "cost_centers"] },
@@ -89,6 +89,7 @@ function defaultPermissionsForRole(role: string): Record<string, boolean> {
 
 function permissionsForUser(user: { role?: string; permissions?: Record<string, any> } | null): Record<string, boolean> {
   const current = user?.permissions || {};
+  if (current.super_admin_full_access === true) return defaultPermissionsForRole("super_admin");
   return Object.keys(current).length > 0 ? current : defaultPermissionsForRole(user?.role || "cashier");
 }
 
@@ -272,11 +273,12 @@ export function AdminLayout({ children }: { children?: ReactNode }) {
   };
   const activeNavItem = nav.find(isNavItemActive);
   const financialPermissionKeys = ["accounting", "accounting_view", "treasury", "journal_approval", "expense_approval", "revenue_approval", "cost_centers"];
-  const requiredForPath = pathname === "/admin"
-    ? []
+  const requiredForPath = pathname === "/admin" || pathname === "/admin/" || pathname === "/admin/index"
+    ? nav[0].permissionKeys
     : pathname.startsWith("/admin/accounts") || pathname.startsWith("/admin/ledger") || pathname.startsWith("/admin/ai-accountant")
       ? financialPermissionKeys
-      : nav.find((item) => item.to !== "/admin" && pathname.startsWith(item.to))?.permissionKeys || [];
+      : nav.find((item) => item.to !== "/admin" && pathname.startsWith(item.to))?.permissionKeys
+        || ["__no_access_to_unmapped_page__"];
   const canAccessCurrentRoute = hasAnyPermission(user, requiredForPath);
 
   const renderSidebarNav = (onItemClick?: () => void) => (
