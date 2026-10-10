@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ChangeEvent, type FormEvent } from "react";
 import { AlertTriangle, Camera, CheckCircle2, MapPin, Send, User, Briefcase } from "lucide-react";
 import { erpStore } from "@/shared/services/erpStore";
 
@@ -22,7 +22,7 @@ function PublicMaintenanceRequestPage() {
   const [submittedOrder, setSubmittedOrder] = useState<any>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
     if (!file.type.startsWith("image/")) {
@@ -41,7 +41,7 @@ function PublicMaintenanceRequestPage() {
     reader.readAsDataURL(file);
   };
 
-  const handleSubmit = (event: React.FormEvent) => {
+  const handleSubmit = (event: FormEvent) => {
     event.preventDefault();
     setError("");
     const cleanName = name.trim();
