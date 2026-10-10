@@ -167,7 +167,7 @@ DROP POLICY IF EXISTS "profiles_insert_manager" ON public.profiles;
 DROP POLICY IF EXISTS "profiles_update_manager" ON public.profiles;
 DROP POLICY IF EXISTS "profiles_delete_manager" ON public.profiles;
 
-REVOKE ALL ON public.profiles FROM anon;
+REVOKE ALL ON public.profiles FROM PUBLIC, anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.profiles TO authenticated;
 
 CREATE POLICY "profiles_read_self_or_manager"
