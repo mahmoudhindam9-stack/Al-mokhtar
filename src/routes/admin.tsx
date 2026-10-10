@@ -42,9 +42,11 @@ const nav = [
   { to: "/admin/maintenance", label: "قسم الصيانة", icon: Wrench },
   { to: "/admin/mall", label: "إدارة المول والوحدات", icon: Building2 },
   { to: "/admin/financial", label: "قسم الإدارة المالية", icon: Landmark },
+  { to: "/admin/ai-accountant", label: "المحاسب AI", icon: FileSpreadsheet },
   { to: "/admin/inventory", label: "المخازن والتوريدات", icon: Package },
   { to: "/admin/receipts", label: "تصميم وإدارة الإيصالات والسندات", icon: Receipt },
   { to: "/admin/hr", label: "إدارة الموارد البشرية", icon: UserCheck },
+  { to: "/admin/labor-law", label: "قانون العمل واللوائح", icon: BookOpen },
   { to: "/admin/reports", label: "التقارير", icon: BarChart3 },
   { to: "/admin/users", label: "المستخدمين", icon: Users },
   {
