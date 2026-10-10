@@ -10,6 +10,7 @@ import {
 import { useEffect, useState } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { CloudSyncIndicator } from "@/components/CloudSyncIndicator";
 import { translator } from "../shared/services/translationService";
 import { createAppSync } from "../shared/services/appSync";
 import appCss from "../styles.css?url";
@@ -171,6 +172,7 @@ function RootComponent() {
         <QueryClientProvider client={queryClient}>
           <BrandSplash />
           <Outlet />
+          <CloudSyncIndicator />
           <Toaster />
           <ThemeToggle className="fixed bottom-4 left-4 z-50 rounded-full h-14 w-14 shadow-lg bg-background" />
         </QueryClientProvider>
