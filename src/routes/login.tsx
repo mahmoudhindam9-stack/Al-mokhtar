@@ -29,6 +29,34 @@ function normalizeDigits(str: string): string {
     .replace(/[٩۹]/g, "9");
 }
 
+async function signInCloudAccount(username: string, password: string) {
+  if (typeof navigator !== "undefined" && !navigator.onLine) return null;
+
+  const normalized = username.trim().toLowerCase();
+  const base = normalized.includes("@") ? normalized.split("@")[0] : normalized;
+  const candidates = Array.from(
+    new Set(
+      [
+        normalized.includes("@") ? normalized : "",
+        `${base}@mokhtar.local`,
+        `${base}@restocash.com`,
+        `${base}@restocash.local`,
+        `${base}@mokhtar.com`,
+      ].filter(Boolean),
+    ),
+  );
+
+  for (const email of candidates) {
+    try {
+      const { data } = await supabase.auth.signInWithPassword({ email, password });
+      if (data?.session) return data.session;
+    } catch {
+      // Keep trying compatible username domains; local sign-in must not depend on internet.
+    }
+  }
+  return null;
+}
+
 function LoginPage() {
   const navigate = useNavigate();
   const [username, setUsername] = useState("");
@@ -134,15 +162,11 @@ function LoginPage() {
       }
       erpStore.setCurrentUser(activeUsername);
 
-      // Non-blocking Supabase auth sync in background if credentials match remote profile
-      supabase.auth
-        .signInWithPassword({
-          email: activeEmail,
-          password: rawPass,
-        })
-        .catch(() => {
-          // Local ERP authentication takes precedence
-        });
+      // Attempt to establish a cloud-auth session in the background.
+      // Local authentication remains available when this device is offline.
+      void signInCloudAccount(matchedUser?.username || normalizedInputUser, rawPass).catch(() => {
+        // Cloud synchronization is optional for local-only use.
+      });
 
       setLoading(false);
 
@@ -153,21 +177,13 @@ function LoginPage() {
     }
 
     // 2. Fallback to Supabase Auth if external cloud credentials provided
-    const emailToLogin = normalizedInputUser.includes("@")
-      ? normalizedInputUser
-      : `${normalizedInputUser}@restocash.com`;
-
     try {
-      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-        email: emailToLogin,
-        password: rawPass,
-      });
-
-      if (signInData?.session) {
-        const userEmail = signInData.session.user.email || emailToLogin;
+      const cloudSession = await signInCloudAccount(normalizedInputUser, rawPass);
+      if (cloudSession) {
+        const userEmail = cloudSession.user.email || normalizedInputUser;
         const userRole =
-          (signInData.session.user.user_metadata?.role as string) ||
-          (signInData.session.user.app_metadata?.role as string) ||
+          (cloudSession.user.user_metadata?.role as string) ||
+          (cloudSession.user.app_metadata?.role as string) ||
           "admin";
 
         localStorage.setItem("restocash_auth_user", userEmail);
@@ -183,14 +199,8 @@ function LoginPage() {
         navigate({ to: destination });
         return;
       }
-
-      if (signInError) {
-        setLoading(false);
-        setError("اسم المستخدم أو كلمة المرور غير صحيحة");
-        return;
-      }
     } catch {
-      // Supabase connection fallback
+      // Supabase connection fallback; keep the local-only login path available.
     }
 
     setLoading(false);
