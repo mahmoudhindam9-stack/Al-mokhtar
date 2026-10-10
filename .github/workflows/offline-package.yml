@@ -1,0 +1,65 @@
+name: Build Al-Mokhtar Offline Windows Package
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  build-offline-package:
+    runs-on: windows-latest
+    timeout-minutes: 35
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Install dependencies (include platform bindings)
+        shell: pwsh
+        run: |
+          npm ci --include=optional
+          if ($LASTEXITCODE -ne 0) { throw "npm ci failed." }
+      - name: Build production assets and refresh route tree
+        shell: pwsh
+        run: |
+          npm run build
+          if ($LASTEXITCODE -ne 0) { throw "Production build failed." }
+          if (-not (Test-Path "dist/index.html")) { throw "dist/index.html missing." }
+      - name: Verify types
+        shell: pwsh
+        run: |
+          npm run typecheck
+          if ($LASTEXITCODE -ne 0) { throw "TypeScript validation failed." }
+      - name: Assemble offline Windows package
+        shell: pwsh
+        run: |
+          $stage = Join-Path $env:GITHUB_WORKSPACE "offline-stage"
+          New-Item -ItemType Directory -Force -Path $stage | Out-Null
+          New-Item -ItemType Directory -Force -Path (Join-Path $stage "runtime") | Out-Null
+          New-Item -ItemType Directory -Force -Path (Join-Path $stage "scripts") | Out-Null
+          Copy-Item "dist" (Join-Path $stage "dist") -Recurse -Force
+          Copy-Item "scripts/serve-static.cjs" (Join-Path $stage "scripts/serve-static.cjs") -Force
+          Copy-Item "start-app.bat" (Join-Path $stage "start-app.bat") -Force
+          Copy-Item "setup.bat" (Join-Path $stage "setup.bat") -Force
+          Copy-Item "setup.ps1" (Join-Path $stage "setup.ps1") -Force
+          Copy-Item "OFFLINE-README.txt" (Join-Path $stage "README-FIRST.txt") -Force
+          $nodeExecutable = (Get-Command node).Source
+          Copy-Item $nodeExecutable (Join-Path $stage "runtime/node.exe") -Force
+          if (-not (Test-Path (Join-Path $stage "dist/index.html"))) { throw "dist/index.html missing in package." }
+          if (-not (Test-Path (Join-Path $stage "dist/favicon.ico"))) { throw "dist/favicon.ico missing in package." }
+          if (-not (Test-Path (Join-Path $stage "runtime/node.exe"))) { throw "runtime/node.exe missing in package." }
+          Compress-Archive -Path (Join-Path $stage "*") -DestinationPath (Join-Path $env:GITHUB_WORKSPACE "Al-Mokhtar-Offline.zip") -Force
+      - name: Upload offline package artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Al-Mokhtar-Offline
+          path: Al-Mokhtar-Offline.zip
+          if-no-files-found: error
+          retention-days: 30
