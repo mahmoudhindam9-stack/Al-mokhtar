@@ -83,7 +83,7 @@ import {
 } from "@/shared/services/githubUpdateService";
 
 export const Route = createFileRoute("/admin/system-update")({
-  head: () => ({ meta: [{ title: "تحديث السيستم وحزمة أكسس" }] }),
+  head: () => ({ meta: [{ title: "خيارات المطور والتحديثات — المختار" }] }),
   component: SystemUpdatePage,
 });
 
@@ -141,9 +141,9 @@ function SystemUpdatePage() {
 
   // GitHub Release State
   const [releaseTagName, setReleaseTagName] = useState(`v${CURRENT_VERSION}`);
-  const [releaseTitle, setReleaseTitle] = useState(`Al Mokhtar ERP v${CURRENT_VERSION}`);
+  const [releaseTitle, setReleaseTitle] = useState(APP_RELEASE_NAME);
   const [releaseNotes, setReleaseNotes] = useState(
-    `## 🚀 ما الجديد في الإصدار ${CURRENT_VERSION}:\n- إضافة واجهة تدقيق ومراجعة الورديات (Supabase Shift Audit Logs Viewer) وتتبع فتح وإغلاق الورديات.\n- معالجة وإلغاء فلترة الورديات السابقة وإصلاح مشاكل الورديات المخفية.\n- تحسين مسار الكاشير ونقاط البيع وإفراغ السلة تلقائياً بعد إتمام الدفع بنجاح.\n- إضافة واسترجاع بيانات الموظفين (erpStore.getEmployees) وتحديث واجهات النظام.\n- جاهزية كاملة للنشر التلقائي على Vercel والمزامنة مع GitHub.`,
+    `## المختار لإدارة المشروعات — v${CURRENT_VERSION}:\\n- توحيد الهوية البصرية بالكحلي والذهبي والشعار المؤسسي في صفحات البرنامج ومخرجات الطباعة.\\n- نقل المحاسب AI إلى الإدارة المالية وتحسين توليد التقارير وطباعة PDF وتصدير CSV.\\n- إضافة فحص تحديثات GitHub يدويًا وتلقائيًا، مع ربط النسخة برقم إصدار واضح.\\n- تحسين حزمة ويندوز بحيث تحتوي على Install وUninstall فقط، مع Runtime مرفق واختصارات تلقائية.\\n- إصلاح أخطاء TypeScript والبناء وتدقيق مسار المزامنة المحلية والسحابية.`,
   );
   const [isCreatingRelease, setIsCreatingRelease] = useState(false);
   const [releaseResult, setReleaseResult] = useState<{
@@ -850,7 +850,7 @@ function SystemUpdatePage() {
                       className="px-3 py-1 text-xs font-bold gap-1.5 border-amber-300 dark:border-amber-800 text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40"
                     >
                       <Sparkles size={13} className="text-amber-600" />
-                      النسخة المثبتة: v{CURRENT_VERSION}
+                      {APP_RELEASE_NAME}
                     </Badge>
                   </div>
                 </div>
