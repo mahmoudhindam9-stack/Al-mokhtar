@@ -143,8 +143,9 @@ function SystemUpdatePage() {
   const [releaseTagName, setReleaseTagName] = useState(`v${CURRENT_VERSION}`);
   const [releaseTitle, setReleaseTitle] = useState(APP_RELEASE_NAME);
   const [releaseNotes, setReleaseNotes] = useState(
-    `## المختار لإدارة المشروعات — v${CURRENT_VERSION}:\\n- توحيد الهوية البصرية بالكحلي والذهبي والشعار المؤسسي في صفحات البرنامج ومخرجات الطباعة.\\n- نقل المحاسب AI إلى الإدارة المالية وتحسين توليد التقارير وطباعة PDF وتصدير CSV.\\n- إضافة فحص تحديثات GitHub يدويًا وتلقائيًا، مع ربط النسخة برقم إصدار واضح.\\n- تحسين حزمة ويندوز بحيث تحتوي على Install وUninstall فقط، مع Runtime مرفق واختصارات تلقائية.\\n- إصلاح أخطاء TypeScript والبناء وتدقيق مسار المزامنة المحلية والسحابية.`,
+    `## المختار لإدارة المشروعات — v${CURRENT_VERSION}:\n- توحيد الهوية البصرية بالكحلي والذهبي والشعار المؤسسي في صفحات البرنامج ومخرجات الطباعة.\n- نقل المحاسب AI إلى الإدارة المالية وتحسين توليد التقارير وطباعة PDF وتصدير CSV.\n- إضافة فحص تحديثات GitHub يدويًا وتلقائيًا، مع ربط النسخة برقم إصدار واضح.\n- تحسين حزمة ويندوز بحيث تحتوي على Install وUninstall فقط، مع Runtime مرفق واختصارات تلقائية.\n- إصلاح أخطاء TypeScript والبناء وتدقيق مسار المزامنة المحلية والسحابية.`,
   );
+
   const [isCreatingRelease, setIsCreatingRelease] = useState(false);
   const [releaseResult, setReleaseResult] = useState<{
     success?: boolean;
