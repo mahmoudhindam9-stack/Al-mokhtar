@@ -383,7 +383,9 @@ textarea:focus-visible {
 }
 
 /* Keep the corporate palette from reducing dark-mode text contrast. */
-.dark .text-primary,
+.dark .text-primary {
+  color: var(--primary);
+}
 .dark .text-foreground {
   color: var(--color-foreground);
 }
