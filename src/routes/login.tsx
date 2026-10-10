@@ -32,8 +32,13 @@ function safeInternalRedirect(value: string | null): string {
   return value && value.startsWith("/") && !value.startsWith("//") ? value : "/admin";
 }
 
-async function signInHostedAdminAccount(username: string, password: string) {
+async function signInHostedAdminAccount(username: string, password: string): Promise<
+  | { session: NonNullable<Awaited<ReturnType<typeof supabase.auth.signInWithPassword>>["data"]["session"]>; email: string; role: string }
+  | { reason: "role" }
+  | null
+> {
   const normalized = username.trim().toLowerCase();
+  let authenticatedWithoutAdminRole = false;
   const candidates = normalized.includes("@")
     ? [normalized]
     : [
@@ -50,13 +55,14 @@ async function signInHostedAdminAccount(username: string, password: string) {
       if (["admin", "super_admin"].includes(role)) {
         return { session: data.session, email, role };
       }
-      // Never leave a session authenticated if it lacks the required administrator role.
+      // The credentials may be valid while the database has not yet assigned the server-managed role.
+      authenticatedWithoutAdminRole = true;
       await supabase.auth.signOut().catch(() => undefined);
     } catch {
       // Try the next supported legacy email suffix.
     }
   }
-  return null;
+  return authenticatedWithoutAdminRole ? { reason: "role" } : null;
 }
 
 async function signInCloudAccount(username: string, password: string) {
@@ -105,7 +111,11 @@ function LoginPage() {
         localStorage.setItem("remember_me", rememberMe ? "true" : "false");
         const authenticated = await signInHostedAdminAccount(normalizedUsername, password);
         if (!authenticated) {
-          setError("تعذر الدخول السحابي. تحقق من بيانات الدخول وصلاحية المدير في مشروع Supabase.");
+          setError("تعذّر التحقق من بيانات الدخول في Supabase. تأكّد من البريد وكلمة المرور، ومن تطبيق إعدادات قاعدة البيانات الخاصة بالمختار.");
+          return;
+        }
+        if ("reason" in authenticated && authenticated.reason === "role") {
+          setError("تم قبول الحساب لكن صلاحية المدير غير مضبوطة. طبّق ترحيل قاعدة البيانات 20261010190000_fix_hosted_admin_app_metadata.sql ثم سجّل الدخول مرة أخرى.");
           return;
         }
         const { session, role, email } = authenticated;
