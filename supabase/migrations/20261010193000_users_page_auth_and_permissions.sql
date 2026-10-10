@@ -1,0 +1,132 @@
+-- Centralize hosted usernames and ACL permissions in public.profiles.
+-- The users page becomes the source of truth for application access.
+ALTER TABLE public.profiles
+  ADD COLUMN IF NOT EXISTS username text;
+
+ALTER TABLE public.profiles
+  ADD COLUMN IF NOT EXISTS permissions jsonb NOT NULL DEFAULT '{}'::jsonb;
+
+-- Backfill usernames from existing profile values, auth metadata, or the login email.
+WITH source_rows AS (
+  SELECT
+    p.id,
+    lower(trim(coalesce(
+      nullif(p.username, ''),
+      nullif(u.raw_user_meta_data ->> 'username', ''),
+      split_part(coalesce(u.email, ''), '@', 1),
+      'user'
+    ))) AS base_username,
+    p.created_at
+  FROM public.profiles p
+  LEFT JOIN auth.users u ON u.id = p.id
+),
+ranked AS (
+  SELECT
+    id,
+    base_username,
+    row_number() OVER (PARTITION BY base_username ORDER BY created_at NULLS LAST, id) AS rn
+  FROM source_rows
+)
+UPDATE public.profiles p
+SET username = CASE
+  WHEN ranked.rn = 1 THEN ranked.base_username
+  ELSE ranked.base_username || '_' || right(replace(ranked.id::text, '-', ''), 6)
+END
+FROM ranked
+WHERE ranked.id = p.id
+  AND (p.username IS NULL OR trim(p.username) = '' OR p.username <> CASE
+    WHEN ranked.rn = 1 THEN ranked.base_username
+    ELSE ranked.base_username || '_' || right(replace(ranked.id::text, '-', ''), 6)
+  END);
+
+CREATE UNIQUE INDEX IF NOT EXISTS profiles_username_lower_uidx
+  ON public.profiles (lower(username))
+  WHERE username IS NOT NULL AND trim(username) <> '';
+
+-- Profiles created by Supabase Auth are visible to the account that owns them.
+-- A user role submitted in user_metadata is not trusted; new accounts start as cashier
+-- and their approved role and permissions are set by the authenticated users page.
+CREATE OR REPLACE FUNCTION public.handle_new_almokhtar_profile()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  candidate_username text;
+BEGIN
+  candidate_username := lower(trim(coalesce(
+    nullif(NEW.raw_user_meta_data ->> 'username', ''),
+    split_part(coalesce(NEW.email, ''), '@', 1),
+    'user'
+  )));
+
+  INSERT INTO public.profiles (id, username, full_name, phone, role, permissions, created_at, updated_at)
+  VALUES (
+    NEW.id,
+    candidate_username,
+    nullif(NEW.raw_user_meta_data ->> 'full_name', ''),
+    nullif(NEW.raw_user_meta_data ->> 'phone', ''),
+    'cashier',
+    '{}'::jsonb,
+    now(),
+    now()
+  )
+  ON CONFLICT (id) DO NOTHING;
+
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS on_auth_user_created_almokhtar_profile ON auth.users;
+CREATE TRIGGER on_auth_user_created_almokhtar_profile
+AFTER INSERT ON auth.users
+FOR EACH ROW EXECUTE FUNCTION public.handle_new_almokhtar_profile();
+
+-- Profile permissions, not app_metadata, govern access to the hosted ERP.
+CREATE OR REPLACE FUNCTION public.current_user_can_manage_profiles()
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.profiles p
+    WHERE p.id = auth.uid()
+      AND (
+        p.role IN ('admin', 'super_admin')
+        OR p.permissions ->> 'users_roles' = 'true'
+        OR p.permissions ->> 'system_manage_users' = 'true'
+      )
+  );
+$$;
+
+ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "TEMP_DEV_ALL_profiles" ON public.profiles;
+DROP POLICY IF EXISTS "profiles_read_self_or_manager" ON public.profiles;
+DROP POLICY IF EXISTS "profiles_insert_manager" ON public.profiles;
+DROP POLICY IF EXISTS "profiles_update_manager" ON public.profiles;
+DROP POLICY IF EXISTS "profiles_delete_manager" ON public.profiles;
+
+REVOKE ALL ON public.profiles FROM anon;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.profiles TO authenticated;
+
+CREATE POLICY "profiles_read_self_or_manager"
+  ON public.profiles FOR SELECT TO authenticated
+  USING (id = auth.uid() OR public.current_user_can_manage_profiles());
+
+CREATE POLICY "profiles_insert_manager"
+  ON public.profiles FOR INSERT TO authenticated
+  WITH CHECK (public.current_user_can_manage_profiles());
+
+CREATE POLICY "profiles_update_manager"
+  ON public.profiles FOR UPDATE TO authenticated
+  USING (public.current_user_can_manage_profiles())
+  WITH CHECK (public.current_user_can_manage_profiles());
+
+CREATE POLICY "profiles_delete_manager"
+  ON public.profiles FOR DELETE TO authenticated
+  USING (public.current_user_can_manage_profiles());
+
