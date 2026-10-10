@@ -336,6 +336,7 @@ function SystemUpdatePage() {
     });
     const res = await githubUpdateService.performUpdate();
     if (res.success) {
+      setIsApplyingUpdate(false);
       toast({
         title: "تم فتح صفحة التنزيل 🟢",
         description: res.message,
@@ -367,9 +368,9 @@ function SystemUpdatePage() {
     const updated = githubUpdateService.saveSettings({ autoCheck: enabled });
     setUpdateSettings(updated);
     toast({
-      title: enabled ? "تم تفعيل التحديث التلقائي" : "تم تعطيل التحديث التلقائي",
+      title: enabled ? "تم تفعيل الفحص التلقائي" : "تم تعطيل الفحص التلقائي",
       description: enabled
-        ? "سيقوم النظام بفحص التحديثات من GitHub تلقائياً عند فتح النظام في الخلفية"
+        ? "يفحص الإصدارات عند فتح البرنامج وكل 15 دقيقة؛ تنزيل النسخة وتثبيتها يتم عبر حزمة Install الرسمية"
         : "يمكنك دائماً البحث عن التحديثات يدوياً بالضغط على زر البحث عن التحديثات",
     });
   };
