@@ -31,6 +31,8 @@ import { cn } from "@/lib/utils";
 import { CURRENT_VERSION } from "@/shared/config/version";
 import { GitHubUpdateBanner } from "@/components/admin/GitHubUpdateBanner";
 import { NotificationBell } from "@/components/admin/NotificationBell";
+import { authService } from "@/features/auth/services/authService";
+import { erpStore } from "@/shared/services/erpStore";
 
 export const Route = createFileRoute("/admin")({
   head: () => ({ meta: [{ title: "لوحة الإدارة" }] }),
@@ -38,22 +40,17 @@ export const Route = createFileRoute("/admin")({
 });
 
 const nav = [
-  { to: "/admin", label: "الرئيسية", icon: LayoutDashboard, exact: true },
-  { to: "/admin/maintenance", label: "قسم الصيانة", icon: Wrench },
-  { to: "/admin/mall", label: "إدارة المول والوحدات", icon: Building2 },
-  { to: "/admin/financial", label: "قسم الإدارة المالية", icon: Landmark },
-  { to: "/admin/inventory", label: "المخازن والتوريدات", icon: Package },
-  { to: "/admin/receipts", label: "تصميم وإدارة الإيصالات والسندات", icon: Receipt },
-  { to: "/admin/hr", label: "إدارة الموارد البشرية", icon: UserCheck },
-  { to: "/admin/labor-law", label: "قانون العمل واللوائح", icon: BookOpen },
-  { to: "/admin/reports", label: "التقارير", icon: BarChart3 },
-  { to: "/admin/users", label: "المستخدمين", icon: Users },
-  {
-    to: "/admin/system-update",
-    label: "خيارات المطور",
-    icon: Settings,
-    permissionKey: "developer_options",
-  },
+  { to: "/admin", label: "الرئيسية", icon: LayoutDashboard, exact: true, permissionKeys: [] },
+  { to: "/admin/maintenance", label: "قسم الصيانة", icon: Wrench, permissionKeys: ["maintenance_view", "maintenance_manage_requests", "maintenance_manage_preventive", "maintenance_manage_custody", "maintenance_post_finance", "maintenance_manage_buildings", "maintenance_export_reports"] },
+  { to: "/admin/mall", label: "إدارة المول والوحدات", icon: Building2, permissionKeys: ["mall_manage_shops", "mall_garden_finance"] },
+  { to: "/admin/financial", label: "قسم الإدارة المالية", icon: Landmark, permissionKeys: ["accounting", "accounting_view", "treasury", "journal_approval", "expense_approval", "revenue_approval", "cost_centers"] },
+  { to: "/admin/inventory", label: "المخازن والتوريدات", icon: Package, permissionKeys: ["inventory", "inventory_view", "purchasing", "purchasing_view", "production", "production_view"] },
+  { to: "/admin/receipts", label: "تصميم وإدارة الإيصالات والسندات", icon: Receipt, permissionKeys: ["treasury", "accounting", "revenue_approval", "expense_approval"] },
+  { to: "/admin/hr", label: "إدارة الموارد البشرية", icon: UserCheck, permissionKeys: ["hr", "hr_view_attendance", "hr_manage_payroll_loans"] },
+  { to: "/admin/labor-law", label: "قانون العمل واللوائح", icon: BookOpen, permissionKeys: ["hr", "hr_view_attendance", "labor_law_view"] },
+  { to: "/admin/reports", label: "التقارير", icon: BarChart3, permissionKeys: ["reports", "reports_view_sales", "reports_view_financials"] },
+  { to: "/admin/users", label: "المستخدمين", icon: Users, permissionKeys: ["users_roles", "system_manage_users"] },
+  { to: "/admin/system-update", label: "خيارات المطور", icon: Settings, permissionKeys: ["system_backup_update", "developer_options"] },
 ];
 
 function isHostedDeployment(): boolean {
@@ -62,84 +59,165 @@ function isHostedDeployment(): boolean {
   return !["localhost", "127.0.0.1", "::1", "[::1]"].includes(host) && !host.endsWith(".localhost");
 }
 
+function defaultPermissionsForRole(role: string): Record<string, boolean> {
+  if (role === "admin" || role === "super_admin") {
+    return Object.fromEntries([
+      "orders", "pos", "captain", "kitchen", "delivery", "inventory", "hr",
+      "purchasing", "production", "treasury", "accounting", "journal_approval",
+      "expense_approval", "revenue_approval", "reports", "cost_centers", "branch_mgmt",
+      "audit_logs", "users_roles", "super_admin_full_access", "system_manage_users",
+      "system_backup_update", "maintenance_view", "maintenance_manage_requests",
+      "maintenance_manage_preventive", "maintenance_manage_custody", "maintenance_post_finance",
+      "maintenance_manage_buildings", "maintenance_export_reports", "mall_manage_shops",
+      "mall_garden_finance", "reports_view_sales", "reports_view_financials", "labor_law_view",
+    ].map((key) => [key, true]));
+  }
+  if (role === "manager") {
+    return {
+      orders: true, pos: true, captain: true, kitchen: true, delivery: true,
+      inventory: true, hr: true, purchasing: true, production: true, accounting: true,
+      expense_approval: true, revenue_approval: true, reports: true, cost_centers: true,
+      maintenance_view: true, maintenance_manage_requests: true, mall_manage_shops: true,
+      reports_view_sales: true, reports_view_financials: true,
+    };
+  }
+  if (role === "captain") return { orders: true, captain: true, orders_view: true, captain_access: true, captain_create_order: true };
+  if (role === "kitchen") return { kitchen: true, kitchen_view: true, kitchen_change_status: true };
+  return { orders: true, pos: true, captain: true, kitchen: true, delivery: true, orders_view: true, pos_access: true };
+}
+
+function permissionsForUser(user: { role?: string; permissions?: Record<string, any> } | null): Record<string, boolean> {
+  const current = user?.permissions || {};
+  return Object.keys(current).length > 0 ? current : defaultPermissionsForRole(user?.role || "cashier");
+}
+
+function hasAnyPermission(user: { role?: string; permissions?: Record<string, any> } | null, keys: string[] = []): boolean {
+  if (keys.length === 0) return true;
+  const permissions = permissionsForUser(user);
+  return keys.some((key) => permissions[key] === true);
+}
+
+function localUsernameFromStorage(value: string): string {
+  return String(value || "").split("@")[0].toLowerCase();
+}
+
+
 export function AdminLayout({ children }: { children?: ReactNode }) {
   const location = useLocation();
   const navigate = useNavigate();
   const pathname = location.pathname;
-  const [user, setUser] = useState<{ email?: string } | null>(null);
+  const [user, setUser] = useState<{ email?: string; username?: string; role?: string; permissions?: Record<string, any> } | null>(null);
   const [authChecking, setAuthChecking] = useState(true);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
 
+    const readLocalUser = (storedUser: string) => {
+      const username = localUsernameFromStorage(storedUser);
+      const state = erpStore.getState() as any;
+      const role = sessionStorage.getItem("restocash_user_role")
+        || localStorage.getItem("restocash_user_role")
+        || state.users?.find((item: any) => String(item.username || "").toLowerCase() === username)?.role
+        || "cashier";
+      const permissions = state.userPermissions?.[username] || state.userPermissions?.[role] || {};
+      return { email: storedUser, username, role, permissions };
+    };
+
+    const loadHostedProfile = async (session: any) => {
+      if (!session?.user?.id) {
+        if (isMounted) {
+          setUser(null);
+          navigate({ to: "/login" });
+        }
+        return;
+      }
+      try {
+        const profile: any = await authService.getProfile(session.user.id);
+        if (!profile?.id || !profile?.username) {
+          await supabase.auth.signOut().catch(() => undefined);
+          if (isMounted) {
+            setUser(null);
+            navigate({ to: "/login" });
+          }
+          return;
+        }
+        const appUser = {
+          email: session.user.email || profile.username,
+          username: String(profile.username).toLowerCase(),
+          role: String(profile.role || "cashier"),
+          permissions: (profile.permissions || {}) as Record<string, any>,
+        };
+        if (!isMounted) return;
+        erpStore.updateUserPermission(appUser.username, appUser.permissions);
+        erpStore.upsertUser({
+          id: profile.id,
+          full_name: profile.full_name || appUser.username,
+          username: appUser.username,
+          phone: profile.phone || "",
+          role: appUser.role,
+          permissions: appUser.permissions,
+          created_at: profile.created_at || new Date().toISOString(),
+        } as any);
+        setUser(appUser);
+      } catch (error) {
+        console.error("Hosted profile authorization failed.", error);
+        if (isMounted) {
+          setUser(null);
+          navigate({ to: "/login" });
+        }
+      }
+    };
+
     async function checkAuth() {
       const localUser =
         localStorage.getItem("restocash_auth_user") ||
         sessionStorage.getItem("restocash_auth_user");
-
       try {
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
-
+        const { data: { session } } = await supabase.auth.getSession();
         if (!isMounted) return;
-
         if (isHostedDeployment()) {
-          const cloudRole = String(session?.user?.app_metadata?.role || "");
-          if (session?.user?.email && ["admin", "super_admin"].includes(cloudRole)) {
-            setUser({ email: session.user.email });
+          if (session?.user?.id) {
+            await loadHostedProfile(session);
           } else {
             setUser(null);
             navigate({ to: "/login" });
-            return;
           }
-        } else if (session?.user?.email) {
-          setUser({ email: session.user.email });
         } else if (localUser) {
-          setUser({ email: localUser });
-        } else {
-          navigate({ to: "/login" });
-          return;
-        }
-      } catch (error) {
-        console.error("Restocash auth check failed:", error);
-        if (!isMounted) return;
-        if (!isHostedDeployment() && localUser) {
-          setUser({ email: localUser });
+          setUser(readLocalUser(localUser));
         } else {
           setUser(null);
           navigate({ to: "/login" });
-          return;
+        }
+      } catch (error) {
+        console.error("Al-Mokhtar auth check failed:", error);
+        if (!isMounted) return;
+        if (!isHostedDeployment() && localUser) {
+          setUser(readLocalUser(localUser));
+        } else {
+          setUser(null);
+          navigate({ to: "/login" });
         }
       } finally {
-        if (isMounted) {
-          setAuthChecking(false);
-        }
+        if (isMounted) setAuthChecking(false);
       }
     }
 
-    checkAuth();
+    void checkAuth();
 
-    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!isMounted) return;
+      if (isHostedDeployment()) {
+        // Defer profile queries outside the auth callback to avoid re-entering the auth lock.
+        void Promise.resolve().then(() => loadHostedProfile(session));
+        return;
+      }
       const localUser =
         localStorage.getItem("restocash_auth_user") ||
         sessionStorage.getItem("restocash_auth_user");
-
-      if (isHostedDeployment()) {
-        const cloudRole = String(session?.user?.app_metadata?.role || "");
-        if (session?.user?.email && ["admin", "super_admin"].includes(cloudRole)) {
-          setUser({ email: session.user.email });
-        } else {
-          setUser(null);
-          navigate({ to: "/login" });
-        }
-      } else if (session?.user?.email) {
-        setUser({ email: session.user.email });
-      } else if (localUser) {
-        setUser({ email: localUser });
-      } else if (event === "SIGNED_OUT" || !session) {
+      if (localUser) {
+        setUser(readLocalUser(localUser));
+      } else if (!session) {
         setUser(null);
         navigate({ to: "/login" });
       }
