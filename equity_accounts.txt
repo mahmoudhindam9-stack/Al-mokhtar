@@ -1,0 +1,6 @@
+    type: "equity",
+  { code: "21010", name_ar: "حقوق ملكية مول", type: "equity", level: 3, parent_code: "210" },
+  { code: "21010100", name_ar: "المصرى BICL", type: "equity", level: 4, parent_code: "21010" },
+  { code: "21010110", name_ar: "السودانى CES", type: "equity", level: 4, parent_code: "21010" },
+  { code: "21020", name_ar: "FM حقوق ملكية", type: "equity", level: 3, parent_code: "210" },
+  { code: "21030", name_ar: "ارباح وخسائر مرحلة", type: "equity", level: 3, parent_code: "210" },

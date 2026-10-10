@@ -1,0 +1,8 @@
+{
+  "name": "المختار لإدارة المشروعات",
+  "description": "المختار لإدارة المشروعات — نظام شامل لإدارة المشروعات والمنشآت والمحاسبة ERP والخزائن",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

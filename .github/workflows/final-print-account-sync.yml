@@ -1,0 +1,49 @@
+name: Final print and accounting sync verification
+
+on:
+  push:
+    branches: [fix/external-order-currency-tracking]
+
+permissions:
+  contents: write
+
+jobs:
+  verify:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Apply stable final print and account synchronization
+        run: python3 scripts/apply-final-print-sync-v2.py
+
+      - name: Verify source wiring
+        run: |
+          test -f src/shared/utils/printAccountingDocument.ts
+          grep -q 'printAccountingDocument' src/routes/cashier-treasury.tsx
+          grep -q 'طباعة الشيفت' src/routes/cashier-treasury.tsx
+          grep -q 'طباعة الفترة' src/routes/cashier-treasury.tsx
+          grep -q 'مستند محاسبي' src/routes/cashier-treasury.tsx
+          grep -q 'Excel للفترة' src/routes/cashier-treasury.tsx
+          grep -q 'printLedgerDocument' src/routes/admin/ledger.tsx
+          grep -q 'exportLedgerDocumentToExcel' src/routes/admin/ledger.tsx
+          grep -q 'getCanonicalAccountDefinition' src/shared/services/erpStore.ts
+          grep -q 'ensureJournalAccounts' src/shared/services/erpStore.ts
+
+      - name: Typecheck and production build
+        run: |
+          npm ci
+          npm run typecheck
+          npm run build
+
+      - name: Commit verified application changes
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/shared/utils/printAccountingDocument.ts src/routes/cashier-treasury.tsx src/routes/admin/ledger.tsx src/shared/services/erpStore.ts scripts/apply-final-print-sync-v2.py .github/workflows/final-print-account-sync.yml
+          git diff --cached --quiet || git commit -m "feat: verify cashier and ledger printing with canonical account sync"
+          git push
