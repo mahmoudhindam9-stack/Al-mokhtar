@@ -111,7 +111,6 @@ function AdminDashboard() {
     }
   }, [tabParam]);
 
-  const [selectedUserEmail, setSelectedUserEmail] = useState("admin@mokhtar.local");
 
   // ERP Store State
   const [erpState, setErpState] = useState(erpStore.getState());
