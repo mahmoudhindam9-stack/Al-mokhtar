@@ -1,32 +1,83 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { RestocashLogo } from "@/components/RestocashLogo";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { RestocashLogo } from "@/components/RestocashLogo";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
-import { erpStore, SystemUser } from "@/shared/services/erpStore";
+import { supabase } from "@/integrations/supabase/client";
+import { erpStore, type SystemUser } from "@/shared/services/erpStore";
 
 export const Route = createFileRoute("/login")({
   head: () => ({ meta: [{ title: "تسجيل الدخول — المختار لإدارة المشروعات" }] }),
   component: LoginPage,
 });
 
-// Helper to normalize eastern Arabic/Persian digits to western ASCII digits
-function normalizeDigits(str: string): string {
-  return str
-    .replace(/[٠۰]/g, "0")
-    .replace(/[١۱]/g, "1")
-    .replace(/[٢۲]/g, "2")
-    .replace(/[٣۳]/g, "3")
-    .replace(/[٤۴]/g, "4")
-    .replace(/[٥۵]/g, "5")
-    .replace(/[٦۶]/g, "6")
-    .replace(/[٧۷]/g, "7")
-    .replace(/[٨۸]/g, "8")
+function isHostedDeployment(): boolean {
+  if (typeof window === "undefined") return false;
+  const host = window.location.hostname.toLowerCase();
+  return !["localhost", "127.0.0.1", "::1", "[::1]"].includes(host) && !host.endsWith(".localhost");
+}
+
+function normalizeDigits(value: string): string {
+  return value
+    .replace(/[٠۰]/g, "0").replace(/[١۱]/g, "1").replace(/[٢۲]/g, "2")
+    .replace(/[٣۳]/g, "3").replace(/[٤۴]/g, "4").replace(/[٥۵]/g, "5")
+    .replace(/[٦۶]/g, "6").replace(/[٧۷]/g, "7").replace(/[٨۸]/g, "8")
     .replace(/[٩۹]/g, "9");
+}
+
+function safeInternalRedirect(value: string | null): string {
+  return value && value.startsWith("/") && !value.startsWith("//") ? value : "/admin";
+}
+
+async function signInHostedAdminAccount(username: string, password: string) {
+  const normalized = username.trim().toLowerCase();
+  const candidates = normalized.includes("@")
+    ? [normalized]
+    : [
+        `${normalized}@restocash.local`,
+        `${normalized}@almokhtar.local`,
+        `${normalized}@mokhtar.local`,
+        `${normalized}@restocash.com`,
+      ];
+  for (const email of Array.from(new Set(candidates))) {
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error || !data?.session) continue;
+      const role = String(data.session.user.app_metadata?.role || "");
+      if (["admin", "super_admin"].includes(role)) {
+        return { session: data.session, email, role };
+      }
+      // Never leave a session authenticated if it lacks the required administrator role.
+      await supabase.auth.signOut().catch(() => undefined);
+    } catch {
+      // Try the next supported legacy email suffix.
+    }
+  }
+  return null;
+}
+
+async function signInCloudAccount(username: string, password: string) {
+  if (typeof navigator !== "undefined" && !navigator.onLine) return null;
+  const normalized = username.trim().toLowerCase();
+  const base = normalized.includes("@") ? normalized.split("@")[0] : normalized;
+  const candidates = Array.from(new Set([
+    normalized.includes("@") ? normalized : `${base}@restocash.local`,
+    `${base}@almokhtar.local`,
+    `${base}@mokhtar.local`,
+    `${base}@restocash.com`,
+  ].filter(Boolean)));
+  for (const email of candidates) {
+    try {
+      const { data } = await supabase.auth.signInWithPassword({ email, password });
+      if (data?.session) return data.session;
+    } catch {
+      // Local sign-in is valid offline; cloud sync remains optional.
+    }
+  }
+  return null;
 }
 
 function LoginPage() {
@@ -37,224 +88,122 @@ function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // Check if already authenticated and redirect accordingly
-  useEffect(() => {
-    const localUser =
-      localStorage.getItem("restocash_auth_user") || sessionStorage.getItem("restocash_auth_user");
-    if (localUser) {
-      const searchParams = new URLSearchParams(window.location.search);
-      const redirectUrl = searchParams.get("redirect") || "/admin";
-      navigate({ to: redirectUrl });
-    }
-  }, [navigate]);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
     setError(null);
     setLoading(true);
 
-    const normalizedInputUser = normalizeDigits(username.trim().toLowerCase());
-    const rawPass = password;
-    const normalizedPass = normalizeDigits(rawPass);
-
-    // Save remember preference
-    localStorage.setItem("remember_me", rememberMe ? "true" : "false");
-
-    // Determine target redirect route
-    const searchParams = new URLSearchParams(window.location.search);
-    const customRedirect = searchParams.get("redirect");
-
-    // 1. Direct verify against Super Admin and System users in erpStore
-    const localUsers = erpStore.getUsers() as SystemUser[];
-    const matchedUser = localUsers.find((u) => {
-      if (!u) return false;
-      const uName = (u.username || "").trim().toLowerCase();
-      const uFullName = (u.full_name || "").trim().toLowerCase();
-      const uPhone = (u.phone || "").trim();
-
-      const userMatches =
-        uName === normalizedInputUser ||
-        `${uName}@mokhtar.com` === normalizedInputUser ||
-        `${uName}@mokhtar.local` === normalizedInputUser ||
-        `${uName}@restocash.com` === normalizedInputUser ||
-        `${uName}@restocash.local` === normalizedInputUser ||
-        `${uName}@juba.com` === normalizedInputUser ||
-        (normalizedInputUser.includes("@") && uName === normalizedInputUser.split("@")[0]);
-
-      const fullNameMatches = uFullName && uFullName === normalizedInputUser;
-      const phoneMatches = uPhone && normalizeDigits(uPhone) === normalizedInputUser;
-
-      return userMatches || fullNameMatches || phoneMatches;
-    });
-
-    const isSuperAdminUser =
-      normalizedInputUser === "admin" ||
-      normalizedInputUser === "superadmin" ||
-      normalizedInputUser === "super_admin" ||
-      normalizedInputUser === "mokhtar" ||
-      normalizedInputUser === "admin@mokhtar.com" ||
-      normalizedInputUser === "admin@mokhtar.local" ||
-      normalizedInputUser === "admin@restocash.com" ||
-      normalizedInputUser === "admin@restocash.local" ||
-      normalizedInputUser === "admin@juba.com";
-
-    const isSuperAdminPass =
-      rawPass === "123456" ||
-      rawPass === "123" ||
-      normalizedPass === "123456" ||
-      normalizedPass === "123";
-
-    const isSuperAdminMatch = isSuperAdminUser && isSuperAdminPass;
-
-    let isUserMatch = false;
-    if (matchedUser) {
-      if (matchedUser.password) {
-        isUserMatch =
-          matchedUser.password === rawPass ||
-          matchedUser.password === normalizedPass ||
-          matchedUser.password === normalizeDigits(matchedUser.password);
-      } else {
-        // Default password fallback for users without explicit passwords
-        isUserMatch = isSuperAdminPass;
-      }
-    }
-
-    if (isSuperAdminMatch || isUserMatch) {
-      const activeUsername = matchedUser ? matchedUser.username : "admin";
-      const activeRole = matchedUser ? matchedUser.role : "admin";
-      const activeEmail = activeUsername.includes("@")
-        ? activeUsername
-        : `${activeUsername}@restocash.com`;
-
-      // Persist auth session
-      localStorage.setItem("restocash_auth_user", activeEmail);
-      localStorage.setItem("restocash_user_role", activeRole);
-      if (!rememberMe) {
-        sessionStorage.setItem("restocash_auth_user", activeEmail);
-      }
-      erpStore.setCurrentUser(activeUsername);
-
-      // Non-blocking Supabase auth sync in background if credentials match remote profile
-      supabase.auth
-        .signInWithPassword({
-          email: activeEmail,
-          password: rawPass,
-        })
-        .catch(() => {
-          // Local ERP authentication takes precedence
-        });
-
-      setLoading(false);
-
-      // Determine appropriate post-login route
-      const destination = customRedirect || "/admin";
-      navigate({ to: destination });
-      return;
-    }
-
-    // 2. Fallback to Supabase Auth if external cloud credentials provided
-    const emailToLogin = normalizedInputUser.includes("@")
-      ? normalizedInputUser
-      : `${normalizedInputUser}@restocash.com`;
-
     try {
-      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-        email: emailToLogin,
-        password: rawPass,
-      });
+      const normalizedUsername = normalizeDigits(username.trim().toLowerCase());
+      const normalizedPassword = normalizeDigits(password);
+      const search = new URLSearchParams(window.location.search);
+      const destination = safeInternalRedirect(search.get("redirect"));
 
-      if (signInData?.session) {
-        const userEmail = signInData.session.user.email || emailToLogin;
-        const userRole =
-          (signInData.session.user.user_metadata?.role as string) ||
-          (signInData.session.user.app_metadata?.role as string) ||
-          "admin";
-
-        localStorage.setItem("restocash_auth_user", userEmail);
-        localStorage.setItem("restocash_user_role", userRole);
-        if (!rememberMe) {
-          sessionStorage.setItem("restocash_auth_user", userEmail);
+      // Public deployments must use a real Supabase session with a server-assigned admin role.
+      // The local default account must never grant access to the hosted ERP.
+      if (isHostedDeployment()) {
+        localStorage.setItem("remember_me", rememberMe ? "true" : "false");
+        const authenticated = await signInHostedAdminAccount(normalizedUsername, password);
+        if (!authenticated) {
+          setError("تعذر الدخول السحابي. تحقق من بيانات الدخول وصلاحية المدير في مشروع Supabase.");
+          return;
         }
-        erpStore.setCurrentUser(userEmail.split("@")[0]);
-
-        setLoading(false);
-
-        const destination = customRedirect || "/admin";
-        navigate({ to: destination });
+        const { session, role, email } = authenticated;
+        const activeEmail = session.user.email || email;
+        localStorage.removeItem("restocash_auth_user");
+        sessionStorage.removeItem("restocash_auth_user");
+        const storage = rememberMe ? localStorage : sessionStorage;
+        storage.setItem("restocash_auth_user", activeEmail);
+        storage.setItem("restocash_user_role", role);
+        erpStore.setCurrentUser(activeEmail.split("@")[0]);
+        navigate({ to: destination as any });
         return;
       }
 
-      if (signInError) {
-        setLoading(false);
+      // Offline/local mode: accounts are read from the local ERP store only.
+      const users = erpStore.getUsers() as SystemUser[];
+      const user = users.find((candidate) => {
+        if (!candidate) return false;
+        const candidateUsername = (candidate.username || "").trim().toLowerCase();
+        const candidateFullName = (candidate.full_name || "").trim().toLowerCase();
+        const candidatePhone = normalizeDigits((candidate.phone || "").trim());
+        return candidateUsername === normalizedUsername ||
+          candidateFullName === normalizedUsername ||
+          (candidatePhone !== "" && candidatePhone === normalizedUsername);
+      });
+      const passwordMatches = !!user &&
+        (user.password === password ||
+          normalizeDigits(user.password || "") === normalizedPassword);
+
+      if (!user || !passwordMatches) {
         setError("اسم المستخدم أو كلمة المرور غير صحيحة");
         return;
       }
-    } catch {
-      // Supabase connection fallback
-    }
 
-    setLoading(false);
-    setError("اسم المستخدم أو كلمة المرور غير صحيحة");
+      const activeUsername = user.username || normalizedUsername;
+      const activeEmail = activeUsername.includes("@")
+        ? activeUsername
+        : `${activeUsername}@almokhtar.local`;
+
+      localStorage.removeItem("restocash_auth_user");
+      sessionStorage.removeItem("restocash_auth_user");
+      localStorage.removeItem("restocash_user_role");
+      sessionStorage.removeItem("restocash_user_role");
+      localStorage.setItem("remember_me", rememberMe ? "true" : "false");
+      const storage = rememberMe ? localStorage : sessionStorage;
+      storage.setItem("restocash_auth_user", activeEmail);
+      storage.setItem("restocash_user_role", user.role || "cashier");
+      erpStore.setCurrentUser(activeUsername);
+      void signInCloudAccount(activeUsername, password).catch(() => undefined);
+      navigate({ to: destination as any });
+    } catch (cause) {
+      console.error("Sign-in failed", cause);
+      setError("تعذر تسجيل الدخول. تحقق من الاتصال والإعدادات ثم حاول مرة أخرى.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4 relative">
-      <div className="absolute top-4 left-4">
-        <LanguageSwitcher />
-      </div>
+      <div className="absolute top-4 left-4"><LanguageSwitcher /></div>
       <div className="w-full max-w-sm space-y-6 bg-card border border-border p-6 rounded-2xl shadow-sm">
-        <div className="flex justify-center mb-2">
-          <RestocashLogo size={32} />
-        </div>
+        <div className="flex justify-center mb-2"><RestocashLogo size={32} /></div>
         <p className="text-sm font-bold text-muted-foreground text-center">
           المختار لإدارة المشروعات — تسجيل الدخول
+        </p>
+        <p className="text-xs text-muted-foreground text-center">
+          {isHostedDeployment()
+            ? "نسخة الإنترنت: يلزم حساب مدير موثّق في مشروع Supabase."
+            : "النسخة المحلية تعمل دون اتصال بالإنترنت وتحتفظ ببيانات هذا الجهاز."}
         </p>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <Label>اسم المستخدم</Label>
-            <Input
-              type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              required
-              placeholder="admin"
-              className="mt-1"
-              autoFocus
-            />
+            <Input value={username} onChange={(event) => setUsername(event.target.value)}
+              required placeholder="admin" className="mt-1" autoComplete="username" autoFocus />
           </div>
           <div>
             <Label>كلمة المرور</Label>
-            <Input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              placeholder="••••••"
-              dir="ltr"
-              className="text-right mt-1"
-            />
+            <Input type="password" value={password} onChange={(event) => setPassword(event.target.value)}
+              required placeholder="••••••" dir="ltr" autoComplete="current-password"
+              className="text-right mt-1" />
           </div>
-
-          <div className="flex items-center space-x-2 space-x-reverse">
-            <Checkbox
-              id="remember"
-              checked={rememberMe}
-              onCheckedChange={(checked) => setRememberMe(checked as boolean)}
-            />
-            <Label htmlFor="remember" className="text-sm font-normal cursor-pointer">
-              تذكرني
-            </Label>
-          </div>
-
-          {error && (
-            <p className="text-xs text-destructive bg-destructive/10 p-2.5 rounded-lg border border-destructive/20 text-center font-bold">
-              {error}
-            </p>
+          {!isHostedDeployment() && (
+            <div className="flex items-center space-x-2 space-x-reverse">
+              <Checkbox id="remember" checked={rememberMe}
+                onCheckedChange={(checked) => setRememberMe(checked === true)} />
+              <Label htmlFor="remember" className="text-sm font-normal cursor-pointer">تذكرني</Label>
+            </div>
           )}
+          {error && <p role="alert" className="text-xs text-destructive bg-destructive/10 p-2.5 rounded-lg border border-destructive/20 text-center font-bold">{error}</p>}
           <Button type="submit" className="w-full h-10 font-bold text-sm" disabled={loading}>
             {loading ? "جاري الدخول…" : "دخول"}
           </Button>
         </form>
+        {!isHostedDeployment() && (
+          <p className="text-[11px] text-muted-foreground text-center">الحساب المحلي الافتراضي: admin / 123456</p>
+        )}
       </div>
     </div>
   );

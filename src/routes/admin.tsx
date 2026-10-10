@@ -45,6 +45,7 @@ const nav = [
   { to: "/admin/inventory", label: "المخازن والتوريدات", icon: Package },
   { to: "/admin/receipts", label: "تصميم وإدارة الإيصالات والسندات", icon: Receipt },
   { to: "/admin/hr", label: "إدارة الموارد البشرية", icon: UserCheck },
+  { to: "/admin/labor-law", label: "قانون العمل واللوائح", icon: BookOpen },
   { to: "/admin/reports", label: "التقارير", icon: BarChart3 },
   { to: "/admin/users", label: "المستخدمين", icon: Users },
   {
@@ -54,6 +55,12 @@ const nav = [
     permissionKey: "developer_options",
   },
 ];
+
+function isHostedDeployment(): boolean {
+  if (typeof window === "undefined") return false;
+  const host = window.location.hostname.toLowerCase();
+  return !["localhost", "127.0.0.1", "::1", "[::1]"].includes(host) && !host.endsWith(".localhost");
+}
 
 export function AdminLayout({ children }: { children?: ReactNode }) {
   const location = useLocation();
@@ -78,7 +85,16 @@ export function AdminLayout({ children }: { children?: ReactNode }) {
 
         if (!isMounted) return;
 
-        if (session?.user?.email) {
+        if (isHostedDeployment()) {
+          const cloudRole = String(session?.user?.app_metadata?.role || "");
+          if (session?.user?.email && ["admin", "super_admin"].includes(cloudRole)) {
+            setUser({ email: session.user.email });
+          } else {
+            setUser(null);
+            navigate({ to: "/login" });
+            return;
+          }
+        } else if (session?.user?.email) {
           setUser({ email: session.user.email });
         } else if (localUser) {
           setUser({ email: localUser });
@@ -89,9 +105,10 @@ export function AdminLayout({ children }: { children?: ReactNode }) {
       } catch (error) {
         console.error("Restocash auth check failed:", error);
         if (!isMounted) return;
-        if (localUser) {
+        if (!isHostedDeployment() && localUser) {
           setUser({ email: localUser });
         } else {
+          setUser(null);
           navigate({ to: "/login" });
           return;
         }
@@ -110,11 +127,20 @@ export function AdminLayout({ children }: { children?: ReactNode }) {
         localStorage.getItem("restocash_auth_user") ||
         sessionStorage.getItem("restocash_auth_user");
 
-      if (session?.user?.email) {
+      if (isHostedDeployment()) {
+        const cloudRole = String(session?.user?.app_metadata?.role || "");
+        if (session?.user?.email && ["admin", "super_admin"].includes(cloudRole)) {
+          setUser({ email: session.user.email });
+        } else {
+          setUser(null);
+          navigate({ to: "/login" });
+        }
+      } else if (session?.user?.email) {
         setUser({ email: session.user.email });
       } else if (localUser) {
         setUser({ email: localUser });
       } else if (event === "SIGNED_OUT" || !session) {
+        setUser(null);
         navigate({ to: "/login" });
       }
     });
