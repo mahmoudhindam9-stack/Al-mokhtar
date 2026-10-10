@@ -184,7 +184,7 @@ CREATE POLICY "profiles_update_manager"
 
 CREATE POLICY "profiles_delete_manager"
   ON public.profiles FOR DELETE TO authenticated
-  USING (public.current_user_can_manage_profiles());
+  USING (id <> auth.uid() AND public.current_user_can_manage_profiles());
 
 -- Permanently remove an account through the Users page. Auth deletion cascades
 -- to profiles and their cloud snapshots; never allow a user to delete themselves.
