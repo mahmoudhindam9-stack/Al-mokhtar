@@ -741,7 +741,7 @@ function AdminDashboard() {
       const tr = treasuryToDelete;
       erpStore.deleteTreasury(id);
       setErpState(erpStore.getState());
-      setActiveTab("treasury");
+      handleDashboardTabChange("treasury");
       toast({
         title: "✅ تم حذف / أرشفة الخزينة بنجاح",
         description: `تم إزالة الخزينة "${tr.name_ar}" من القائمة النشطة، وتحديث دليل الحسابات وسجل الخزائن بصفحة الإدارة بنجاح.`,
