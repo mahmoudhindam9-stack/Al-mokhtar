@@ -129,6 +129,18 @@ function hasBusinessData(state: Record<string, any>): boolean {
   return (state.users || []).some((user: any) => user?.id && !DEFAULT_USER_IDS.has(user.id));
 }
 
+async function canReachCloud(): Promise<boolean> {
+  const baseUrl = String((supabase as any).supabaseUrl || "").replace(/\/$/, "");
+  if (!baseUrl) return false;
+  try {
+    // Use the native fetch rather than the fallback Supabase fetch wrapper so real network failures remain detectable.
+    await fetch(`${baseUrl}/auth/v1/health`, { method: "GET", cache: "no-store" });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 async function getAuthenticatedUser() {
   const { data, error } = await supabase.auth.getSession();
   if (error) throw error;
@@ -223,10 +235,10 @@ async function syncOnce() {
   if (syncInProgress || typeof window === "undefined") return;
   if (currentStatus.kind === "conflict") return;
 
-  if (!navigator.onLine) {
+  if (!navigator.onLine || !(await canReachCloud())) {
     setStatus({
       kind: "offline",
-      message: "دون إنترنت — بياناتك مستمرة في الحفظ محليًا",
+      message: "لا يوجد اتصال فعلي بالسحابة — بياناتك مستمرة في الحفظ محليًا",
     });
     return;
   }
@@ -353,6 +365,13 @@ async function syncOnce() {
 
 export async function resolveCloudConflict(choice: ConflictChoice): Promise<void> {
   if (typeof window === "undefined") return;
+  if (!navigator.onLine || !(await canReachCloud())) {
+    setStatus({
+      kind: "offline",
+      message: "لا يوجد اتصال بالسحابة؛ لم يتم تغيير النسخة المحلية",
+    });
+    return;
+  }
   setStatus({ kind: "syncing", message: "جاري معالجة تعارض المزامنة…" });
   try {
     const user = await getAuthenticatedUser();
