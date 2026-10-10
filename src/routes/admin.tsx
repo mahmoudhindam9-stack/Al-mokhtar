@@ -129,11 +129,25 @@ export function AdminLayout({ children }: { children?: ReactNode }) {
         || localStorage.getItem("restocash_user_role")
         || localRecord.role
         || "cashier";
-      const permissions =
-        state.userPermissions?.[localRecord.username] ||
+      const cachedPermissions =
         localRecord.permissions ||
+        state.userPermissions?.[localRecord.username] ||
         state.userPermissions?.[role] ||
         {};
+      const hasGranularAcl = Object.keys(cachedPermissions).some(
+        (key) =>
+          key.includes("_view") ||
+          key.endsWith("_access") ||
+          key.startsWith("system_") ||
+          key.startsWith("maintenance_") ||
+          key.startsWith("mall_") ||
+          key === "super_admin_full_access",
+      );
+      const permissions = cachedPermissions.super_admin_full_access === true
+        ? defaultPermissionsForRole("super_admin")
+        : hasGranularAcl
+          ? cachedPermissions
+          : defaultPermissionsForRole(role);
       return { email: storedUser, username: localRecord.username, role, permissions, permissionsManaged: false };
     };
 
