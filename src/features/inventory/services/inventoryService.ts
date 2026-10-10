@@ -59,6 +59,10 @@ export const inventoryService = {
   },
 
   async getWarehouses(): Promise<Warehouse[]> {
+    const localWarehouses = localWarehouseStore.getWarehouses();
+    const localMaintenanceWarehouse = localWarehouses.find(
+      (warehouse) => warehouse.id === "wh-maintenance" || warehouse.name.trim() === "مخزن الصيانة",
+    );
     try {
       const { data, error } = await (supabase as any)
         .from("warehouses")
@@ -67,13 +71,45 @@ export const inventoryService = {
         .order("name");
       if (error) throw error;
       if (data && data.length > 0) {
-        localWarehouseStore.saveWarehouses(data as Warehouse[]);
-        return data as Warehouse[];
+        const combined = [...(data as Warehouse[])];
+        if (
+          localMaintenanceWarehouse &&
+          !combined.some((warehouse) =>
+            warehouse.id === localMaintenanceWarehouse.id || warehouse.name.trim() === "مخزن الصيانة",
+          )
+        ) {
+          combined.push(localMaintenanceWarehouse);
+        }
+        localWarehouseStore.saveWarehouses(combined);
+        return combined;
       }
     } catch {
-      // Fallback
+      // Continue with the local warehouse registry when cloud storage is unavailable.
     }
     return localWarehouseStore.getWarehouses();
+  },
+
+  async ensureMaintenanceWarehouse(): Promise<Warehouse> {
+    const warehouses = await this.getWarehouses();
+    const existing = warehouses.find(
+      (warehouse) => warehouse.id === "wh-maintenance" || warehouse.name.trim() === "مخزن الصيانة",
+    );
+    if (existing) return existing;
+
+    const created = await this.createWarehouse({
+      name: "مخزن الصيانة",
+      description: "مخزن مخصص لقطع الغيار ومستلزمات أعمال الصيانة",
+      location: "قسم الصيانة",
+      is_default: false,
+      auto_populate_ingredients: false,
+    });
+    const current = localWarehouseStore.getWarehouses();
+    const next = [
+      ...current.filter((warehouse) => warehouse.name.trim() !== "مخزن الصيانة" && warehouse.id !== created.id),
+      created,
+    ];
+    localWarehouseStore.saveWarehouses(next);
+    return created;
   },
 
   async getWarehouseInventory(warehouseId?: string): Promise<WarehouseInventory[]> {
