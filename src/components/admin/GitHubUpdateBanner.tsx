@@ -66,10 +66,10 @@ export function GitHubUpdateBanner() {
 
   return (
     <>
-      <div className="bg-gradient-to-r from-amber-600 via-orange-600 to-rose-600 text-white px-4 py-2.5 shadow-md flex items-center justify-between gap-3 text-xs sm:text-sm animate-in fade-in slide-in-from-top-2 duration-300">
+      <div className="bg-gradient-to-r from-slate-950 via-slate-900 to-amber-800 text-white px-4 py-2.5 shadow-md flex items-center justify-between gap-3 text-xs sm:text-sm animate-in fade-in slide-in-from-top-2 duration-300">
         <div className="flex items-center gap-2.5 font-bold flex-1">
           <span className="p-1 rounded-full bg-white/20">
-            <Sparkles size={16} className="text-amber-200" />
+            <Sparkles size={16} className="text-amber-300" />
           </span>
           <span>
             يوجد تحديث جديد متاح من النظام على GitHub:{" "}
@@ -99,7 +99,7 @@ export function GitHubUpdateBanner() {
             size="sm"
             disabled={isUpdating}
             onClick={handleApplyUpdate}
-            className="h-8 px-3 text-xs font-black bg-white text-orange-700 hover:bg-amber-50 shadow-sm"
+            className="h-8 px-3 text-xs font-black bg-white text-slate-900 hover:bg-amber-50 shadow-sm"
           >
             <RefreshCw size={13} className={isUpdating ? "animate-spin ml-1.5" : "ml-1.5"} />
             {isUpdating ? "جاري التحديث..." : "تنزيل التحديث"}
@@ -174,7 +174,7 @@ export function GitHubUpdateBanner() {
                 setShowModal(false);
                 handleApplyUpdate();
               }}
-              className="text-xs font-black bg-amber-600 hover:bg-amber-700 text-white"
+              className="text-xs font-black bg-slate-900 hover:bg-slate-800 text-amber-100"
             >
               <RefreshCw size={14} className={isUpdating ? "animate-spin ml-1.5" : "ml-1.5"} />
               تنزيل الإصدار من GitHub
