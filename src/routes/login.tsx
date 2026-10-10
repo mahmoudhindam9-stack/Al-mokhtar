@@ -58,7 +58,12 @@ async function signInHostedUser(username: string, password: string) {
       }
 
       if (profile?.id && profile?.username) {
-        return { session: data.session, email, profile };
+        const isUsernameLogin = !normalized.includes("@");
+        const storedUsername = String(profile.username).trim().toLowerCase();
+        if (!isUsernameLogin || storedUsername === normalized) {
+          return { session: data.session, email, profile };
+        }
+        // A legacy duplicate email alias must not bypass the username shown in the users page.
       }
 
       accountMissingFromUsersPage = true;
