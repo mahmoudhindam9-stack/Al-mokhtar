@@ -113,14 +113,7 @@ function HRPage() {
   const [payrollMonth, setPayrollMonth] = useState<string>("2026-07");
 
   // Get current logged-in employee name
-  const currentUserEmail = useMemo(() => {
-    if (typeof window === "undefined") return "";
-    return (
-      localStorage.getItem("restocash_auth_user") ||
-      sessionStorage.getItem("restocash_auth_user") ||
-      ""
-    );
-  }, []);
+  const currentUserEmail = useMemo(() => erpStore.getState().currentUser || "", []);
 
   const loggedInEmployeeName = useMemo(() => {
     if (!currentUserEmail) return "مدير النظام (Admin)";
