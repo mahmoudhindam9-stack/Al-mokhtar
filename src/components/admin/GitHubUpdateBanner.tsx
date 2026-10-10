@@ -57,6 +57,7 @@ export function GitHubUpdateBanner() {
     toast.loading("جاري فتح صفحة تنزيل الإصدار المنشور على GitHub...", { id: "applying-update" });
     const res = await githubUpdateService.performUpdate();
     if (res.success) {
+      setIsUpdating(false);
       toast.success(res.message, { id: "applying-update" });
     } else {
       setIsUpdating(false);
