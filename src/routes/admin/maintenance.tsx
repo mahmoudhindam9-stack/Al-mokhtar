@@ -109,12 +109,12 @@ const PRIORITIES = [
 ];
 const today = () => new Date().toISOString().slice(0, 10);
 const createOrderForm = () => ({
-  title: "", description: "", facilityId: "", deadline: today(), priority: "MEDIUM",
+  title: "", description: "", facilityId: "", subFacilityId: "", deadline: today(), priority: "MEDIUM",
   status: "PENDING", assignedTo: "", maintenanceType: "كهرباء", requiredParts: "",
   laborCost: "0", partsCost: "0",
 });
 const createTaskForm = () => ({
-  description: "", facilityId: "", frequency: "MONTHLY", nextDueDate: today(),
+  description: "", facilityId: "", subFacilityId: "", frequency: "MONTHLY", nextDueDate: today(),
   assignedTo: "", notes: "", requiredParts: "",
 });
 const createCustodyForm = () => ({
@@ -343,7 +343,7 @@ function MaintenancePage() {
     if (order) {
       setEditingOrderId(order.id);
       setOrderForm({
-        title: order.title || "", description: order.description || "", facilityId: order.facilityId || "",
+        title: order.title || "", description: order.description || "", facilityId: order.facilityId || "", subFacilityId: order.subFacilityId || "",
         deadline: (order.deadline || today()).slice(0, 10), priority: order.priority || "MEDIUM",
         status: order.status || "PENDING", assignedTo: order.assignedTo?.[0] || "",
         maintenanceType: (order.maintenanceType || []).join(", "), requiredParts: order.requiredParts || "",
@@ -373,6 +373,7 @@ function MaintenancePage() {
       title: orderForm.title.trim(),
       description: orderForm.description.trim(),
       facilityId: orderForm.facilityId || facilities[0]?.id || "",
+      subFacilityId: orderForm.subFacilityId || "",
       deadline: orderForm.deadline || today(),
       priority: orderForm.priority,
       status: orderForm.status,
@@ -460,7 +461,7 @@ function MaintenancePage() {
     if (task) {
       setEditingTaskId(task.id);
       setTaskForm({
-        description: task.description || "", facilityId: task.facilityId || "",
+        description: task.description || "", facilityId: task.facilityId || "", subFacilityId: task.subFacilityId || "",
         frequency: task.frequency || "MONTHLY", nextDueDate: (task.nextDueDate || today()).slice(0, 10),
         assignedTo: task.assignedTo || "", notes: task.notes || "",
         requiredParts: (task.requiredParts || []).map((part: any) => part.name || part.itemId || "").join(", "),
@@ -486,6 +487,7 @@ function MaintenancePage() {
       taskNumber: existing?.taskNumber || nextNumber,
       description: taskForm.description.trim(),
       facilityId: taskForm.facilityId,
+      subFacilityId: taskForm.subFacilityId || "",
       frequency: taskForm.frequency,
       nextDueDate: taskForm.nextDueDate,
       assignedTo: taskForm.assignedTo || "",
