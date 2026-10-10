@@ -117,14 +117,24 @@ export function AdminLayout({ children }: { children?: ReactNode }) {
     let isMounted = true;
 
     const readLocalUser = (storedUser: string) => {
-      const username = localUsernameFromStorage(storedUser);
+      const normalized = String(storedUser || "").trim().toLowerCase();
+      const username = localUsernameFromStorage(normalized);
       const state = erpStore.getState() as any;
+      const localRecord = (state.users || []).find((item: any) => {
+        const storedName = String(item.username || "").trim().toLowerCase();
+        return storedName.includes("@") ? storedName === normalized : storedName === username;
+      });
+      if (!localRecord || !localRecord.password) return null;
       const role = sessionStorage.getItem("restocash_user_role")
         || localStorage.getItem("restocash_user_role")
-        || state.users?.find((item: any) => String(item.username || "").toLowerCase() === username)?.role
+        || localRecord.role
         || "cashier";
-      const permissions = state.userPermissions?.[username] || state.userPermissions?.[role] || {};
-      return { email: storedUser, username, role, permissions, permissionsManaged: false };
+      const permissions =
+        state.userPermissions?.[localRecord.username] ||
+        localRecord.permissions ||
+        state.userPermissions?.[role] ||
+        {};
+      return { email: storedUser, username: localRecord.username, role, permissions, permissionsManaged: false };
     };
 
     const loadHostedProfile = async (session: any) => {
@@ -188,7 +198,12 @@ export function AdminLayout({ children }: { children?: ReactNode }) {
             navigate({ to: "/login" });
           }
         } else if (localUser) {
-          setUser(readLocalUser(localUser));
+          const existingLocalUser = readLocalUser(localUser);
+          if (existingLocalUser) setUser(existingLocalUser);
+          else {
+            setUser(null);
+            navigate({ to: "/login" });
+          }
         } else {
           setUser(null);
           navigate({ to: "/login" });
@@ -197,7 +212,12 @@ export function AdminLayout({ children }: { children?: ReactNode }) {
         console.error("Al-Mokhtar auth check failed:", error);
         if (!isMounted) return;
         if (!isHostedDeployment() && localUser) {
-          setUser(readLocalUser(localUser));
+          const existingLocalUser = readLocalUser(localUser);
+          if (existingLocalUser) setUser(existingLocalUser);
+          else {
+            setUser(null);
+            navigate({ to: "/login" });
+          }
         } else {
           setUser(null);
           navigate({ to: "/login" });
