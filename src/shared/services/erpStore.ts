@@ -250,6 +250,7 @@ export interface SystemUser {
   phone: string;
   role: string;
   password?: string;
+  permissions?: UserPermission;
   created_at: string;
 }
 
