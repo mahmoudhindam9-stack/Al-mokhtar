@@ -136,9 +136,10 @@ export interface WarehouseTransfer {
 
 export interface Profile {
   id: string;
+  username: string | null;
   full_name: string | null;
   phone: string | null;
-  role: UserRole;
+  role: string;
   permissions?: Record<string, any>;
   created_at: string;
   updated_at: string;
