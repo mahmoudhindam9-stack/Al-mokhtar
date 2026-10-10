@@ -196,14 +196,14 @@ export const inventoryService = {
       let item: InventoryItem | null = null;
       if (id) {
         const { data, error } = await supabase
-          .from("inventory")
+          .from("inventory" as any)
           .update(payload)
           .eq("id", id)
           .select()
           .single();
         if (!error && data) item = data as InventoryItem;
       } else {
-        const { data, error } = await supabase.from("inventory").insert(payload).select().single();
+        const { data, error } = await supabase.from("inventory" as any).insert(payload).select().single();
         if (!error && data) item = data as InventoryItem;
       }
 
