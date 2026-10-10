@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { erpStore } from "@/shared/services/erpStore";
 import { inventoryService } from "@/features/inventory/services/inventoryService";
 import { useSettings } from "@/hooks/use-settings";
+import { MaintenanceReportPanel } from "@/components/maintenance/MaintenanceWidgets";
 import { printRawHtml } from "@/shared/utils/printAccountingDocument";
 import * as XLSX from "xlsx";
 import {
@@ -762,6 +763,7 @@ function ReportsPage() {
 
   return (
     <div className="space-y-6 pb-12 text-right print:p-0">
+      <MaintenanceReportPanel />
       {/* Title block */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border pb-5 print:hidden">
         <div>

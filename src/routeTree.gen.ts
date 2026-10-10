@@ -20,6 +20,7 @@ import { Route as AdminHrRouteImport } from './routes/admin/hr'
 import { Route as AdminInventoryRouteImport } from './routes/admin/inventory'
 import { Route as AdminLedgerRouteImport } from './routes/admin/ledger'
 import { Route as AdminMallRouteImport } from './routes/admin/mall'
+import { Route as AdminMaintenanceRouteImport } from './routes/admin/maintenance'
 import { Route as AdminReceiptsRouteImport } from './routes/admin/receipts'
 import { Route as AdminReportsRouteImport } from './routes/admin/reports'
 import { Route as AdminSystemUpdateRouteImport } from './routes/admin/system-update'
@@ -80,6 +81,11 @@ const AdminMallRoute = AdminMallRouteImport.update({
   path: '/mall',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminMaintenanceRoute = AdminMaintenanceRouteImport.update({
+  id: '/maintenance',
+  path: '/maintenance',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminReceiptsRoute = AdminReceiptsRouteImport.update({
   id: '/receipts',
   path: '/receipts',
@@ -112,6 +118,7 @@ export interface FileRoutesByFullPath {
   '/admin/inventory': typeof AdminInventoryRoute
   '/admin/ledger': typeof AdminLedgerRoute
   '/admin/mall': typeof AdminMallRoute
+  '/admin/maintenance': typeof AdminMaintenanceRoute
   '/admin/receipts': typeof AdminReceiptsRoute
   '/admin/reports': typeof AdminReportsRoute
   '/admin/system-update': typeof AdminSystemUpdateRoute
@@ -128,6 +135,7 @@ export interface FileRoutesByTo {
   '/admin/inventory': typeof AdminInventoryRoute
   '/admin/ledger': typeof AdminLedgerRoute
   '/admin/mall': typeof AdminMallRoute
+  '/admin/maintenance': typeof AdminMaintenanceRoute
   '/admin/receipts': typeof AdminReceiptsRoute
   '/admin/reports': typeof AdminReportsRoute
   '/admin/system-update': typeof AdminSystemUpdateRoute
@@ -146,6 +154,7 @@ export interface FileRoutesById {
   '/admin/inventory': typeof AdminInventoryRoute
   '/admin/ledger': typeof AdminLedgerRoute
   '/admin/mall': typeof AdminMallRoute
+  '/admin/maintenance': typeof AdminMaintenanceRoute
   '/admin/receipts': typeof AdminReceiptsRoute
   '/admin/reports': typeof AdminReportsRoute
   '/admin/system-update': typeof AdminSystemUpdateRoute
@@ -165,6 +174,7 @@ export interface FileRouteTypes {
     | '/admin/inventory'
     | '/admin/ledger'
     | '/admin/mall'
+    | '/admin/maintenance'
     | '/admin/receipts'
     | '/admin/reports'
     | '/admin/system-update'
@@ -181,6 +191,7 @@ export interface FileRouteTypes {
     | '/admin/inventory'
     | '/admin/ledger'
     | '/admin/mall'
+    | '/admin/maintenance'
     | '/admin/receipts'
     | '/admin/reports'
     | '/admin/system-update'
@@ -198,6 +209,7 @@ export interface FileRouteTypes {
     | '/admin/inventory'
     | '/admin/ledger'
     | '/admin/mall'
+    | '/admin/maintenance'
     | '/admin/receipts'
     | '/admin/reports'
     | '/admin/system-update'
@@ -292,6 +304,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminMallRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/maintenance': {
+      id: '/admin/maintenance'
+      path: '/maintenance'
+      fullPath: '/admin/maintenance'
+      preLoaderRoute: typeof AdminMaintenanceRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/receipts': {
       id: '/admin/receipts'
       path: '/receipts'
@@ -329,6 +348,7 @@ interface AdminRouteChildren {
   AdminInventoryRoute: typeof AdminInventoryRoute
   AdminLedgerRoute: typeof AdminLedgerRoute
   AdminMallRoute: typeof AdminMallRoute
+  AdminMaintenanceRoute: typeof AdminMaintenanceRoute
   AdminReceiptsRoute: typeof AdminReceiptsRoute
   AdminReportsRoute: typeof AdminReportsRoute
   AdminSystemUpdateRoute: typeof AdminSystemUpdateRoute
@@ -342,6 +362,7 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminInventoryRoute: AdminInventoryRoute,
   AdminLedgerRoute: AdminLedgerRoute,
   AdminMallRoute: AdminMallRoute,
+  AdminMaintenanceRoute: AdminMaintenanceRoute,
   AdminReceiptsRoute: AdminReceiptsRoute,
   AdminReportsRoute: AdminReportsRoute,
   AdminSystemUpdateRoute: AdminSystemUpdateRoute,

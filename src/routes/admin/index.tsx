@@ -18,6 +18,7 @@ import { erpStore, type Account } from "@/shared/services/erpStore";
 import { inventoryService } from "@/features/inventory/services/inventoryService";
 import { AuditOperationsModal, AuditOperationsView } from "@/components/admin/AuditOperationsModal";
 import { ShiftAuditLogViewerModal } from "@/components/admin/ShiftAuditLogViewerModal";
+import { MaintenanceHomeWidget } from "@/components/maintenance/MaintenanceWidgets";
 import { ShiftAuditLogViewer } from "@/components/admin/ShiftAuditLogViewer";
 import { TreasuryReportModal } from "@/components/admin/TreasuryReportModal";
 import { printTreasuryMovementDocument } from "@/shared/utils/printAccountingDocument";
@@ -731,6 +732,7 @@ function AdminDashboard() {
 
   return (
     <div className="space-y-6 pb-12 text-right">
+      {activeTab === "dashboard" && <MaintenanceHomeWidget />}
       {/* Upper header with switcher */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border pb-5">
         <div>

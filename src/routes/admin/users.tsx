@@ -470,6 +470,48 @@ const PERMISSION_CATEGORIES: PermissionCategory[] = [
       },
     ],
   },
+  {
+    id: "maintenance_section",
+    name: "16. قسم الصيانة (Maintenance)",
+    desc: "الرئيسية وطلبات الصيانة والصيانة الدورية والعهد وربط مصروفات الصيانة",
+    permissions: [
+      {
+        key: "maintenance_view",
+        name: "عرض قسم الصيانة",
+        desc: "فتح لوحة الصيانة ومشاهدة الطلبات وخريطة المباني والتقارير",
+      },
+      {
+        key: "maintenance_manage_requests",
+        name: "إدارة طلبات الصيانة",
+        desc: "إنشاء وتعديل وإلغاء طلبات الصيانة وتعيين المسؤولين",
+      },
+      {
+        key: "maintenance_manage_preventive",
+        name: "إدارة الصيانة الدورية",
+        desc: "إنشاء وتعديل وجدولة مهام الصيانة الدورية وإتمامها",
+      },
+      {
+        key: "maintenance_manage_custody",
+        name: "إدارة العهد",
+        desc: "تسجيل العهد وتسليمها واستردادها وربطها بالموظفين والمخزون",
+      },
+      {
+        key: "maintenance_post_finance",
+        name: "ترحيل مصروفات الصيانة للمالية",
+        desc: "إنشاء سند صرف وقيد مالي مرتبط بتكلفة طلب الصيانة",
+      },
+      {
+        key: "maintenance_manage_buildings",
+        name: "إدارة خريطة المباني",
+        desc: "تعديل أسماء المباني وإضافة مبانٍ أو حذفها",
+      },
+      {
+        key: "maintenance_export_reports",
+        name: "تصدير تقارير الصيانة",
+        desc: "تصدير ملخص طلبات الصيانة والتكلفة والعهد",
+      },
+    ],
+  },
 ];
 
 function UsersPage() {
@@ -693,6 +735,7 @@ function UsersPage() {
         "approvals_section",
         "reports_section",
         "hr_section",
+        "maintenance_section",
       ];
       PERMISSION_CATEGORIES.forEach((cat) => {
         if (allowedCategories.includes(cat.id)) {

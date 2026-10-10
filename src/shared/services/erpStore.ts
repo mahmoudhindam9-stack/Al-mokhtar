@@ -351,6 +351,15 @@ export interface UserPermission {
   system_backup_update?: boolean;
   system_audit_logs?: boolean;
 
+  // Maintenance module permissions
+  maintenance_view?: boolean;
+  maintenance_manage_requests?: boolean;
+  maintenance_manage_preventive?: boolean;
+  maintenance_manage_custody?: boolean;
+  maintenance_post_finance?: boolean;
+  maintenance_manage_buildings?: boolean;
+  maintenance_export_reports?: boolean;
+
   // Park & Tickets (Mall)
   manage_park_shifts?: boolean;
   delete_park_shifts?: boolean;
@@ -891,6 +900,12 @@ const DEFAULT_BRANCHES: Branch[] = [
   { id: "branch-1", name: "Main Branch", name_ar: "الفرع الرئيسي", code: "MAIN" },
 ];
 
+const DEFAULT_MAINTENANCE_FACILITIES = [
+  { id: "maintenance-building-1", facilityNumber: 1, name: "مبنى رقم 1", subFacilities: [] },
+  { id: "maintenance-building-2", facilityNumber: 2, name: "مبنى رقم 2", subFacilities: [] },
+  { id: "maintenance-building-3", facilityNumber: 3, name: "مبنى رقم 3", subFacilities: [] },
+];
+
 const DEFAULT_COST_CENTERS = [
   "المطبخ (Kitchen)",
   "البار (Bar)",
@@ -1280,6 +1295,21 @@ export class ERPStore {
                     ? idbState.parkTicketTransactions || []
                     : [],
                   park_sales_hard_zero_reset_v4_2026_09_03: true,
+                  maintenance_reset_2026_10_10: true,
+                  maintenanceWorkOrders: idbState.maintenance_reset_2026_10_10
+                    ? idbState.maintenanceWorkOrders || []
+                    : [],
+                  maintenancePreventiveTasks: idbState.maintenance_reset_2026_10_10
+                    ? idbState.maintenancePreventiveTasks || []
+                    : [],
+                  maintenanceCustodies: idbState.maintenance_reset_2026_10_10
+                    ? idbState.maintenanceCustodies || []
+                    : [],
+                  maintenanceFacilities: idbState.maintenance_reset_2026_10_10
+                    ? Array.isArray(idbState.maintenanceFacilities) && idbState.maintenanceFacilities.length > 0
+                      ? idbState.maintenanceFacilities
+                      : DEFAULT_MAINTENANCE_FACILITIES
+                    : DEFAULT_MAINTENANCE_FACILITIES,
                 };
                 this.recalculateAccountBalances();
                 this.notify();
@@ -1546,6 +1576,22 @@ export class ERPStore {
           restaurantShifts: parsed.restaurantShifts || [],
           restaurantActiveShift: parsed.restaurantActiveShift || null,
           restaurantRefundRecords: parsed.restaurantRefundRecords || [],
+          // One-time import reset: do not carry demo requests/tasks or the old facilities map.
+          maintenance_reset_2026_10_10: true,
+          maintenanceWorkOrders: parsed.maintenance_reset_2026_10_10
+            ? parsed.maintenanceWorkOrders || []
+            : [],
+          maintenancePreventiveTasks: parsed.maintenance_reset_2026_10_10
+            ? parsed.maintenancePreventiveTasks || []
+            : [],
+          maintenanceCustodies: parsed.maintenance_reset_2026_10_10
+            ? parsed.maintenanceCustodies || []
+            : [],
+          maintenanceFacilities: parsed.maintenance_reset_2026_10_10
+            ? Array.isArray(parsed.maintenanceFacilities) && parsed.maintenanceFacilities.length > 0
+              ? parsed.maintenanceFacilities
+              : DEFAULT_MAINTENANCE_FACILITIES
+            : DEFAULT_MAINTENANCE_FACILITIES,
         };
       } catch (e) {
         console.error("Error parsing ERP state:", e);
@@ -1666,6 +1712,11 @@ export class ERPStore {
       restaurantShifts: [],
       restaurantActiveShift: null,
       restaurantRefundRecords: [],
+      maintenance_reset_2026_10_10: true,
+      maintenanceWorkOrders: [],
+      maintenancePreventiveTasks: [],
+      maintenanceCustodies: [],
+      maintenanceFacilities: DEFAULT_MAINTENANCE_FACILITIES,
     };
   }
   saveState() {

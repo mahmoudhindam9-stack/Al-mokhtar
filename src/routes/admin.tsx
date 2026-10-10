@@ -20,6 +20,7 @@ import {
   Menu,
   Building2,
   Settings,
+  Wrench,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -38,6 +39,7 @@ export const Route = createFileRoute("/admin")({
 
 const nav = [
   { to: "/admin", label: "الرئيسية", icon: LayoutDashboard, exact: true },
+  { to: "/admin/maintenance", label: "قسم الصيانة", icon: Wrench },
   { to: "/admin/mall", label: "إدارة المول والوحدات", icon: Building2 },
   { to: "/admin/financial", label: "قسم الإدارة المالية", icon: Landmark },
   { to: "/admin/inventory", label: "المخازن والتوريدات", icon: Package },
