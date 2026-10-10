@@ -592,7 +592,7 @@ function SystemUpdatePage() {
       name: "tblOrders",
       label: "المبيعات والطلبات التشغيلية",
       csvName: "Orders.csv",
-      count: erpState.treasuryTransactions?.filter((t) => t.type === "sales")?.length || 0,
+      count: erpState.treasuryTransactions?.filter((t: any) => t.type === "sales")?.length || 0,
       description: "المعاملات المالية والتشغيلية المعتمدة",
       primaryKey: "id",
       fields: ["id", "order_type", "table_number", "total", "status"],

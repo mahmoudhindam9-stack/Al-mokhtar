@@ -14,14 +14,14 @@ if (
   !process.env.VITE_SUPABASE_URL.startsWith("http://") &&
   !process.env.VITE_SUPABASE_URL.startsWith("https://")
 ) {
-  process.env.VITE_SUPABASE_URL = "https://myqtvbfibvgxkqwxvuru.supabase.co";
+  process.env.VITE_SUPABASE_URL = "http://127.0.0.1:54321";
 }
 if (
   process.env.SUPABASE_URL &&
   !process.env.SUPABASE_URL.startsWith("http://") &&
   !process.env.SUPABASE_URL.startsWith("https://")
 ) {
-  process.env.SUPABASE_URL = "https://myqtvbfibvgxkqwxvuru.supabase.co";
+  process.env.SUPABASE_URL = "http://127.0.0.1:54321";
 }
 
 export default defineConfig({

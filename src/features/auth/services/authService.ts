@@ -27,8 +27,7 @@ export const authService = {
       (item) => normalized(item.username || "") === lookup ||
         normalized(item.username || "") === normalized(username),
     );
-    if (!user || (!user.password && !(lookup === "admin" && password === "123456")) ||
-      (user.password && user.password !== password && !(lookup === "admin" && password === "123456"))) {
+    if (!user || !user.password || user.password !== password) {
       throw new Error("اسم المستخدم أو كلمة المرور غير صحيحة");
     }
     erpStore.setCurrentUser(user.username);

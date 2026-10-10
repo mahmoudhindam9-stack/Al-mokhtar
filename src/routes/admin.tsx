@@ -53,6 +53,12 @@ const nav = [
   },
 ];
 
+function isHostedDeployment(): boolean {
+  if (typeof window === "undefined") return false;
+  const host = window.location.hostname.toLowerCase();
+  return !["localhost", "127.0.0.1", "::1", "[::1]"].includes(host) && !host.endsWith(".localhost");
+}
+
 export function AdminLayout({ children }: { children?: ReactNode }) {
   const location = useLocation();
   const navigate = useNavigate();
@@ -76,7 +82,16 @@ export function AdminLayout({ children }: { children?: ReactNode }) {
 
         if (!isMounted) return;
 
-        if (session?.user?.email) {
+        if (isHostedDeployment()) {
+          const cloudRole = String(session?.user?.app_metadata?.role || "");
+          if (session?.user?.email && ["admin", "super_admin"].includes(cloudRole)) {
+            setUser({ email: session.user.email });
+          } else {
+            setUser(null);
+            navigate({ to: "/login" });
+            return;
+          }
+        } else if (session?.user?.email) {
           setUser({ email: session.user.email });
         } else if (localUser) {
           setUser({ email: localUser });
@@ -87,9 +102,10 @@ export function AdminLayout({ children }: { children?: ReactNode }) {
       } catch (error) {
         console.error("Restocash auth check failed:", error);
         if (!isMounted) return;
-        if (localUser) {
+        if (!isHostedDeployment() && localUser) {
           setUser({ email: localUser });
         } else {
+          setUser(null);
           navigate({ to: "/login" });
           return;
         }
@@ -108,11 +124,20 @@ export function AdminLayout({ children }: { children?: ReactNode }) {
         localStorage.getItem("restocash_auth_user") ||
         sessionStorage.getItem("restocash_auth_user");
 
-      if (session?.user?.email) {
+      if (isHostedDeployment()) {
+        const cloudRole = String(session?.user?.app_metadata?.role || "");
+        if (session?.user?.email && ["admin", "super_admin"].includes(cloudRole)) {
+          setUser({ email: session.user.email });
+        } else {
+          setUser(null);
+          navigate({ to: "/login" });
+        }
+      } else if (session?.user?.email) {
         setUser({ email: session.user.email });
       } else if (localUser) {
         setUser({ email: localUser });
       } else if (event === "SIGNED_OUT" || !session) {
+        setUser(null);
         navigate({ to: "/login" });
       }
     });

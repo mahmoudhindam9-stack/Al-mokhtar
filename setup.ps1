@@ -58,7 +58,9 @@ if (-not $nodeExe -or -not (Test-Path $nodeExe)) {
     throw "Node.js could not be prepared."
 }
 
-if (-not (Test-Path (Join-Path $root "node_modules\vite\bin\vite.js"))) {
+$productionEntry = Join-Path $root ".output\server\index.mjs"
+
+if (-not (Test-Path $productionEntry) -and -not (Test-Path (Join-Path $root "node_modules\vite\bin\vite.js"))) {
     if (-not $npmCmd) {
         $systemNpm = Get-Command npm.cmd -ErrorAction SilentlyContinue
         if ($systemNpm) { $npmCmd = $systemNpm.Source }
@@ -75,8 +77,16 @@ if (-not (Test-Path (Join-Path $root "node_modules\vite\bin\vite.js"))) {
 
 $url = "http://127.0.0.1:3000"
 Write-Host "Starting Al-Mokhtar locally at $url" -ForegroundColor Green
-$arguments = @("node_modules/vite/bin/vite.js", "--host", "127.0.0.1", "--port", "3000", "--strictPort")
-$server = Start-Process -FilePath $nodeExe -ArgumentList $arguments -WorkingDirectory $root -PassThru
+if (Test-Path $productionEntry) {
+    $env:PORT = "3000"
+    $env:HOST = "127.0.0.1"
+    $env:NITRO_PORT = "3000"
+    $env:NITRO_HOST = "127.0.0.1"
+    $argumentLine = '"' + $productionEntry + '"'
+} else {
+    $argumentLine = 'node_modules/vite/bin/vite.js --host 127.0.0.1 --port 3000 --strictPort'
+}
+$server = Start-Process -FilePath $nodeExe -ArgumentList $argumentLine -WorkingDirectory $root -PassThru
 
 $ready = $false
 for ($i = 0; $i -lt 45; $i++) {

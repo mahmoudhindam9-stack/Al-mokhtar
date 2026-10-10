@@ -17,7 +17,7 @@
     "verify:cleanup": "node scripts/verify-cleanup.cjs",
     "format": "prettier --write .",
     "test": "vitest",
-    "start:local": "vite --host 127.0.0.1 --port 3000 --strictPort",
+    "start:local": "node .output/server/index.mjs",
     "build:vercel": "vite build --config vite.vercel.config.ts",
     "deploy:vercel": "vercel --prod"
   },

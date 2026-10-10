@@ -17,11 +17,17 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - name: Install, typecheck and build
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Install Nitro adapter and Windows native build binding
+        shell: pwsh
         run: |
-          npm ci
-          npm run typecheck
-          npm run build
+          npm install --no-save nitro @rolldown/binding-win32-x64-msvc@1.2.7
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Build production server output
+        run: npm run build:vercel
       - name: Assemble portable offline folder
         shell: pwsh
         run: |
@@ -29,10 +35,9 @@ jobs:
           $source = $env:GITHUB_WORKSPACE
           $package = Join-Path $env:RUNNER_TEMP "Al-Mokhtar-Offline"
           New-Item -ItemType Directory -Path $package -Force | Out-Null
-          robocopy $source $package /E /XD .git .github node_modules runtime dist /XF .env .env.local
+          robocopy $source $package /E /XD .git .github node_modules runtime dist .output /XF .env .env.local
           if ($LASTEXITCODE -ge 8) { exit $LASTEXITCODE }
-          Copy-Item (Join-Path $source "node_modules") $package -Recurse -Force
-          Copy-Item (Join-Path $source "dist") $package -Recurse -Force
+          Copy-Item (Join-Path $source ".output") $package -Recurse -Force
           $nodeVersion = (& node --version).Trim()
           $runtimeZipName = "node-$nodeVersion-win-x64.zip"
           $runtimeZip = Join-Path $env:RUNNER_TEMP $runtimeZipName

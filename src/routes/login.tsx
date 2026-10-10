@@ -6,12 +6,19 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RestocashLogo } from "@/components/RestocashLogo";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
+import { supabase } from "@/integrations/supabase/client";
 import { erpStore, type SystemUser } from "@/shared/services/erpStore";
 
 export const Route = createFileRoute("/login")({
   head: () => ({ meta: [{ title: "تسجيل الدخول — المختار لإدارة المشروعات" }] }),
   component: LoginPage,
 });
+
+function isHostedDeployment(): boolean {
+  if (typeof window === "undefined") return false;
+  const host = window.location.hostname.toLowerCase();
+  return !["localhost", "127.0.0.1", "::1", "[::1]"].includes(host) && !host.endsWith(".localhost");
+}
 
 function normalizeDigits(value: string): string {
   return value
@@ -33,7 +40,7 @@ function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError(null);
     setLoading(true);
@@ -41,6 +48,39 @@ function LoginPage() {
     try {
       const normalizedUsername = normalizeDigits(username.trim().toLowerCase());
       const normalizedPassword = normalizeDigits(password);
+      const search = new URLSearchParams(window.location.search);
+      const destination = safeInternalRedirect(search.get("redirect"));
+
+      // Public deployments must use a real Supabase session with a server-assigned admin role.
+      // The local default account must never grant access to the hosted ERP.
+      if (isHostedDeployment()) {
+        localStorage.setItem("remember_me", rememberMe ? "true" : "false");
+        const email = normalizedUsername.includes("@")
+          ? normalizedUsername
+          : `${normalizedUsername}@almokhtar.local`;
+        const { data, error: signInError } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+        const role = String(data.session?.user.app_metadata?.role || "");
+        if (signInError || !data.session || !["admin", "super_admin"].includes(role)) {
+          if (data.session) await supabase.auth.signOut().catch(() => undefined);
+          setError("تعذر الدخول السحابي. تحقق من بيانات الدخول وصلاحية المدير في مشروع Supabase الجديد.");
+          return;
+        }
+
+        const activeEmail = data.session.user.email || email;
+        localStorage.removeItem("restocash_auth_user");
+        sessionStorage.removeItem("restocash_auth_user");
+        const storage = rememberMe ? localStorage : sessionStorage;
+        storage.setItem("restocash_auth_user", activeEmail);
+        storage.setItem("restocash_user_role", role);
+        erpStore.setCurrentUser(activeEmail.split("@")[0]);
+        navigate({ to: destination as any });
+        return;
+      }
+
+      // Offline/local mode: accounts are read from the local ERP store only.
       const users = erpStore.getUsers() as SystemUser[];
       const user = users.find((candidate) => {
         if (!candidate) return false;
@@ -51,13 +91,9 @@ function LoginPage() {
           candidateFullName === normalizedUsername ||
           (candidatePhone !== "" && candidatePhone === normalizedUsername);
       });
-
-      const defaultAdminPasswordAccepted =
-        normalizedUsername === "admin" && normalizedPassword === "123456";
       const passwordMatches = !!user &&
         (user.password === password ||
-          normalizeDigits(user.password || "") === normalizedPassword ||
-          (user.username === "admin" && defaultAdminPasswordAccepted));
+          normalizeDigits(user.password || "") === normalizedPassword);
 
       if (!user || !passwordMatches) {
         setError("اسم المستخدم أو كلمة المرور غير صحيحة");
@@ -78,12 +114,10 @@ function LoginPage() {
       storage.setItem("restocash_auth_user", activeEmail);
       storage.setItem("restocash_user_role", user.role || "cashier");
       erpStore.setCurrentUser(activeUsername);
-
-      const search = new URLSearchParams(window.location.search);
-      navigate({ to: safeInternalRedirect(search.get("redirect")) as any });
+      navigate({ to: destination as any });
     } catch (cause) {
-      console.error("Local sign-in failed", cause);
-      setError("تعذر تسجيل الدخول محليًا. أعد تشغيل البرنامج وحاول مرة أخرى.");
+      console.error("Sign-in failed", cause);
+      setError("تعذر تسجيل الدخول. تحقق من الاتصال والإعدادات ثم حاول مرة أخرى.");
     } finally {
       setLoading(false);
     }
@@ -95,10 +129,12 @@ function LoginPage() {
       <div className="w-full max-w-sm space-y-6 bg-card border border-border p-6 rounded-2xl shadow-sm">
         <div className="flex justify-center mb-2"><RestocashLogo size={32} /></div>
         <p className="text-sm font-bold text-muted-foreground text-center">
-          المختار لإدارة المشروعات — تسجيل الدخول المحلي
+          المختار لإدارة المشروعات — تسجيل الدخول
         </p>
         <p className="text-xs text-muted-foreground text-center">
-          يعمل البرنامج دون اتصال بالإنترنت، وتُحفظ التغييرات على هذا الجهاز.
+          {isHostedDeployment()
+            ? "نسخة الإنترنت: يلزم حساب مدير موثّق في مشروع Supabase."
+            : "النسخة المحلية تعمل دون اتصال بالإنترنت وتحتفظ ببيانات هذا الجهاز."}
         </p>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
@@ -112,17 +148,21 @@ function LoginPage() {
               required placeholder="••••••" dir="ltr" autoComplete="current-password"
               className="text-right mt-1" />
           </div>
-          <div className="flex items-center space-x-2 space-x-reverse">
-            <Checkbox id="remember" checked={rememberMe}
-              onCheckedChange={(checked) => setRememberMe(checked === true)} />
-            <Label htmlFor="remember" className="text-sm font-normal cursor-pointer">تذكرني</Label>
-          </div>
+          {!isHostedDeployment() && (
+            <div className="flex items-center space-x-2 space-x-reverse">
+              <Checkbox id="remember" checked={rememberMe}
+                onCheckedChange={(checked) => setRememberMe(checked === true)} />
+              <Label htmlFor="remember" className="text-sm font-normal cursor-pointer">تذكرني</Label>
+            </div>
+          )}
           {error && <p role="alert" className="text-xs text-destructive bg-destructive/10 p-2.5 rounded-lg border border-destructive/20 text-center font-bold">{error}</p>}
           <Button type="submit" className="w-full h-10 font-bold text-sm" disabled={loading}>
             {loading ? "جاري الدخول…" : "دخول"}
           </Button>
         </form>
-        <p className="text-[11px] text-muted-foreground text-center">الحساب الافتراضي: admin / 123456</p>
+        {!isHostedDeployment() && (
+          <p className="text-[11px] text-muted-foreground text-center">الحساب المحلي الافتراضي: admin / 123456</p>
+        )}
       </div>
     </div>
   );

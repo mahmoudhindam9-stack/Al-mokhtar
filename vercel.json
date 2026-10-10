@@ -1,5 +1,5 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "tanstack-start",
-  "buildCommand": "npm install --no-save nitro@3.0.260903-beta && npm run build:vercel"
+  "buildCommand": "npm install --no-save nitro && npm run build:vercel"
 }

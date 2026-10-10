@@ -326,7 +326,7 @@ class ThermalPrinterService {
             ? `
           <div style="display: flex; justify-content: space-between;">
             <span>الضريبة${data.taxRate ? ` (${data.taxRate}%)` : ""}:</span>
-            <span>${data.tax.toFixed(2)} ${data.currency || "USD"}</span>
+            <span>${taxAmount.toFixed(2)} ${data.currency || "USD"}</span>
           </div>
         `
             : ""
@@ -483,7 +483,8 @@ class ThermalPrinterService {
           encoder,
         );
       }
-      if (data.tax > 0) {
+      if ((data.tax ?? 0) > 0) {
+        const taxAmount = data.tax ?? 0;
         const taxRateLabel = data.taxRate ? ` (${data.taxRate}%)` : "";
         this.appendUtf8Bytes(
           bytes,
