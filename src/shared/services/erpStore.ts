@@ -1004,53 +1004,26 @@ const DEFAULT_SUPPLIERS: Supplier[] = ORACLE_MIGRATION_ACCOUNTS.filter(
   deleted: false,
 }));
 
-const DEFAULT_USERS: SystemUser[] = [
-  {
-    id: "u-admin",
-    full_name: "مدير النظام (Super Admin)",
-    username: "admin",
-    password: "123456",
-    phone: "01000000000",
-    role: "admin",
-    created_at: new Date().toISOString(),
-  },
-  {
-    id: "u-manager",
-    full_name: "مشرف الفرع",
-    username: "manager",
-    password: "123456",
-    phone: "01000000001",
-    role: "manager",
-    created_at: new Date().toISOString(),
-  },
-  {
-    id: "u-cashier",
-    full_name: "كاشير الصالة",
-    username: "cashier",
-    password: "123456",
-    phone: "01000000002",
-    role: "cashier",
-    created_at: new Date().toISOString(),
-  },
-];
+
+const LEGACY_DEFAULT_USER_IDS = new Set(["u-admin", "u-manager", "u-cashier"]);
 
 /**
- * Keep any existing local accounts intact, but recover the bundled defaults
- * when stored browser/IndexedDB state has no usable local credentials.
- * Remote-only users do not contain a local password and cannot authenticate offline.
+ * The Users page is the only source of accounts. Retain accounts created in
+ * that page, but permanently remove the old bundled admin/manager/cashier seeds.
  */
 function ensureLocalLoginUsers(users: unknown): SystemUser[] {
-  if (!Array.isArray(users)) return DEFAULT_USERS;
-  const hasUsableLocalAccount = users.some(
+  if (!Array.isArray(users)) return [];
+  return users.filter(
     (user: any) =>
       user &&
+      !LEGACY_DEFAULT_USER_IDS.has(String(user.id || "")) &&
       typeof user.username === "string" &&
       user.username.trim().length > 0 &&
       typeof user.password === "string" &&
       user.password.length > 0,
-  );
-  return hasUsableLocalAccount ? (users as SystemUser[]) : DEFAULT_USERS;
+  ) as SystemUser[];
 }
+
 
 const DEFAULT_PERMISSIONS: Record<string, UserPermission> = {
   admin: {
@@ -1541,7 +1514,7 @@ export class ERPStore {
           })),
           reconciliations: loadedReconciliations,
           userPermissions: parsed.userPermissions || DEFAULT_PERMISSIONS,
-          currentUser: parsed.currentUser || "admin",
+          currentUser: parsed.currentUser || "",
           users: ensureLocalLoginUsers(parsed.users),
           fiscalYearStatus: parsed.fiscalYearStatus || "open",
           inventorySettings: parsed.inventorySettings || {
@@ -1709,7 +1682,7 @@ export class ERPStore {
       reconciliations: [],
       userPermissions: DEFAULT_PERMISSIONS,
       currentUser: "admin",
-      users: DEFAULT_USERS,
+      users: [],
       fiscalYearStatus: "open",
       inventorySettings: {
         allowNegativeStock: true,
