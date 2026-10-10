@@ -648,9 +648,201 @@ function MaintenancePage() {
     );
   };
 
+  const openFacilityTreeEditor = (facility: any) => {
+    if (!canManageBuildings) return;
+    setEditingFacility({
+      ...facility,
+      subFacilities: normalizeBranchTree(facility.subFacilities || []),
+    });
+  };
+  const addBranch = (path: string[] = []) => {
+    if (!canManageBuildings || !editingFacility) return;
+    const newNode = createBranchNode("");
+    setEditingFacility((current: any) => {
+      if (!current) return current;
+      if (path.length === 0) {
+        return { ...current, subFacilities: [...(current.subFacilities || []), newNode] };
+      }
+      return {
+        ...current,
+        subFacilities: updateBranchTree(current.subFacilities || [], path, (node) => ({
+          ...node,
+          children: [...(node.children || []), newNode],
+        })),
+      };
+    });
+  };
+  const renameBranch = (path: string[], name: string) => {
+    setEditingFacility((current: any) => current ? ({
+      ...current,
+      subFacilities: updateBranchTree(current.subFacilities || [], path, (node) => ({ ...node, name })),
+    }) : current);
+  };
+  const removeBranch = (path: string[], name: string) => {
+    if (!canManageBuildings || !window.confirm(`حذف التفرع «${name}» وكل التفرعات التابعة له؟`)) return;
+    setEditingFacility((current: any) => current ? ({
+      ...current,
+      subFacilities: updateBranchTree(current.subFacilities || [], path, () => null),
+    }) : current);
+  };
+  const moveBranch = (path: string[], direction: "up" | "down") => {
+    setEditingFacility((current: any) => current ? ({
+      ...current,
+      subFacilities: moveBranchTree(current.subFacilities || [], path, direction),
+    }) : current);
+  };
+  const branchTreeIsNamed = (nodes: any[]): boolean =>
+    (nodes || []).every((node: any) => !!String(node.name || "").trim() && branchTreeIsNamed(node.children || []));
+  const saveFacilityTree = () => {
+    if (!canManageBuildings || !editingFacility) return;
+    const name = String(editingFacility.name || "").trim();
+    if (!name) { alert("اسم المبنى مطلوب."); return; }
+    if (!branchTreeIsNamed(editingFacility.subFacilities || [])) {
+      alert("اكتب اسم كل تفرع جديد قبل حفظ الخريطة.");
+      return;
+    }
+    const saved = {
+      ...editingFacility,
+      name,
+      subFacilities: normalizeBranchTree(editingFacility.subFacilities || []),
+    };
+    recordAction(
+      { maintenanceFacilities: facilities.map((facility: any) => facility.id === saved.id ? saved : facility) },
+      "تعديل خريطة المنشأة والتفرعات",
+      `تم حفظ المبنى «${saved.name}» مع ${flattenBranchTree(saved.subFacilities).length} تفرعاً متداخلاً`,
+      "UPDATE",
+    );
+    setFacilityDrafts((current) => ({ ...current, [saved.id]: saved.name }));
+    setEditingFacility(null);
+  };
+  const renderSubFacilitiesEditor = (nodes: any[], path: string[] = []): ReactNode => (
+    <div className={path.length ? "mr-5 space-y-2 border-r-2 border-border/70 pr-3" : "space-y-3"}>
+      {(nodes || []).map((node: any, index: number) => {
+        const nodePath = [...path, node.id];
+        return (
+          <div key={node.id} className="space-y-2 rounded-xl border border-border/70 bg-background p-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <Network size={15} className="shrink-0 text-primary" />
+              <input
+                className={`${inputClass} min-w-[160px] flex-1`}
+                value={node.name}
+                onChange={(event) => renameBranch(nodePath, event.target.value)}
+                placeholder="اسم الفرع أو الغرفة"
+                aria-label="اسم التفرع"
+              />
+              <button type="button" className={smallButton} onClick={() => addBranch(nodePath)} title="إضافة فرع داخل هذا الفرع"><Plus size={14}/> فرع</button>
+              <button type="button" className={smallButton} disabled={index === 0} onClick={() => moveBranch(nodePath, "up")} title="تحريك لأعلى"><ArrowUp size={14}/></button>
+              <button type="button" className={smallButton} disabled={index === nodes.length - 1} onClick={() => moveBranch(nodePath, "down")} title="تحريك لأسفل"><ArrowDown size={14}/></button>
+              <button type="button" className={smallButton} onClick={() => openQrForLocation(editingFacility, node)} title="توليد QR لهذا الفرع"><QrCode size={14}/> QR</button>
+              <button type="button" className={`${smallButton} text-destructive`} onClick={() => removeBranch(nodePath, node.name)} title="حذف التفرع"><Trash2 size={14}/></button>
+            </div>
+            {node.children?.length ? renderSubFacilitiesEditor(node.children, nodePath) : (
+              <p className="mr-6 text-[11px] text-muted-foreground">لا توجد فروع فرعية بعد. استخدم زر «فرع» لإضافة مستوى جديد.</p>
+            )}
+          </div>
+        );
+      })}
+      {!nodes?.length && path.length === 0 && <p className="rounded-lg border border-dashed border-border p-4 text-center text-xs text-muted-foreground">لا توجد تفرعات. أضف الفرع الأول ثم تابع إضافة فروع داخله بلا حد للمستويات.</p>}
+    </div>
+  );
+  const saveStockItem = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!canManageStock || !maintenanceWarehouse) return;
+    const name = stockItemForm.name_ar.trim();
+    const quantity = Number(stockItemForm.quantity);
+    const minLevel = Number(stockItemForm.min_level);
+    const cost = Number(stockItemForm.cost);
+    if (!name || !stockItemForm.unit.trim() || !Number.isFinite(quantity) || quantity < 0 ||
+        !Number.isFinite(minLevel) || minLevel < 0 || !Number.isFinite(cost) || cost < 0) {
+      alert("تحقق من اسم الصنف والوحدة والكمية والتكلفة.");
+      return;
+    }
+    setIsSavingStockItem(true);
+    try {
+      const item = await inventoryService.upsertInventoryItem({
+        name_ar: name,
+        unit: stockItemForm.unit.trim(),
+        quantity,
+        min_level: minLevel,
+        cost,
+        category: stockItemForm.category.trim() || "قطع غيار صيانة",
+      }, undefined, maintenanceWarehouse.id);
+      erpStore.logAction("ADMIN", "إضافة صنف إلى مخزن الصيانة", `تم تسجيل الصنف «${item.name_ar}» بكمية ${quantity} ${item.unit} في مخزن الصيانة`, "CREATE");
+      setStockItemForm({ name_ar: "", unit: "قطعة", quantity: "0", min_level: "0", cost: "0", category: "قطع غيار صيانة" });
+      setShowStockItemForm(false);
+      await refreshMaintenanceWarehouse();
+    } catch (error: any) {
+      alert(error?.message || "تعذر حفظ الصنف في مخزن الصيانة.");
+    } finally {
+      setIsSavingStockItem(false);
+    }
+  };
+  const stockQuantity = (inventoryId: string) =>
+    Number(maintenanceWarehouseStock.find((row: any) => row.inventory_id === inventoryId)?.quantity || 0);
+  const issuePartToOrder = async () => {
+    if (!canManageStock || !maintenanceWarehouse || !issueOrderId) return;
+    const order = (erpStore.getState() as any).maintenanceWorkOrders?.find((item: any) => item.id === issueOrderId);
+    const item = maintenanceInventoryItems.find((entry: any) => entry.id === issueForm.inventoryId);
+    const quantity = Number(issueForm.quantity);
+    const available = item ? stockQuantity(item.id) : 0;
+    if (!order || order.financialVoucherId) {
+      alert("لا يمكن صرف قطع غيار لطلب غير موجود أو تم ترحيله ماليًا.");
+      return;
+    }
+    if (!item || !Number.isFinite(quantity) || quantity <= 0 || quantity > available) {
+      alert("اختر صنفًا والكمية الصحيحة ضمن الرصيد المتاح في مخزن الصيانة.");
+      return;
+    }
+
+    setIsIssuingPart(true);
+    try {
+      await inventoryService.addTransaction({
+        inventory_id: item.id,
+        warehouse_id: maintenanceWarehouse.id,
+        type: "out",
+        quantity,
+        note: `صرف من مخزن الصيانة لطلب #${order.orderNumber}: ${order.title}`,
+      });
+      const issueCost = Math.max(0, Number(item.cost) || 0) * quantity;
+      const latestState = erpStore.getState() as any;
+      const latestOrders = latestState.maintenanceWorkOrders || [];
+      const latestOrder = latestOrders.find((entry: any) => entry.id === issueOrderId);
+      if (!latestOrder) throw new Error("لم يعد طلب الصيانة موجودًا.");
+      const issuedPart = {
+        id: `maintenance-issue-${Date.now()}`,
+        inventoryId: item.id,
+        itemName: item.name_ar,
+        quantity,
+        unit: item.unit,
+        unitCost: Number(item.cost) || 0,
+        totalCost: issueCost,
+        warehouseId: maintenanceWarehouse.id,
+        issuedAt: new Date().toISOString(),
+      };
+      recordAction(
+        { maintenanceWorkOrders: latestOrders.map((entry: any) => entry.id === issueOrderId ? {
+          ...latestOrder,
+          issuedParts: [...(latestOrder.issuedParts || []), issuedPart],
+          partsCost: (Number(latestOrder.partsCost) || 0) + issueCost,
+        } : entry) },
+        "صرف قطع غيار من مخزن الصيانة",
+        `تم صرف ${quantity} ${item.unit} من «${item.name_ar}» إلى طلب الصيانة #${order.orderNumber} بتكلفة ${money(issueCost)} ج.م`,
+        "TRANSACTION",
+      );
+      setIssueOrderId(null);
+      setIssueForm({ inventoryId: "", quantity: "1" });
+      await refreshMaintenanceWarehouse();
+    } catch (error: any) {
+      alert(error?.message || "تعذر صرف قطع الغيار.");
+      await refreshMaintenanceWarehouse().catch(() => undefined);
+    } finally {
+      setIsIssuingPart(false);
+    }
+  };
+
   const filteredOrders = orders.filter((order: any) => {
     const phrase = requestSearch.trim().toLowerCase();
-    const haystack = [order.title, order.description, order.orderNumber, buildingName(order.facilityId), personName(order.assignedTo?.[0])].join(" ").toLowerCase();
+    const haystack = [order.title, order.description, order.orderNumber, locationName(order.facilityId, order.subFacilityId), personName(order.assignedTo?.[0])].join(" ").toLowerCase();
     return (!phrase || haystack.includes(phrase)) && (requestStatus === "ALL" || order.status === requestStatus);
   });
   const filteredTasks = tasks.filter((task: any) =>
