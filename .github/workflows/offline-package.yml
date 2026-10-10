@@ -21,11 +21,18 @@ jobs:
         with:
           node-version: "22"
           cache: npm
-      - name: Install dependencies (include platform bindings)
+      - name: Install dependencies and repair optional native binding
         shell: pwsh
         run: |
-          npm ci --include=optional
-          if ($LASTEXITCODE -ne 0) { throw "npm ci failed." }
+          npm install --include=optional --no-audit --no-fund
+          if ($LASTEXITCODE -ne 0) { throw "npm install failed." }
+          if (-not (Test-Path "node_modules/@rolldown/binding-win32-x64-msvc")) {
+            npm install --no-save --no-package-lock --no-audit --no-fund "@rolldown/binding-win32-x64-msvc@1.2.7"
+            if ($LASTEXITCODE -ne 0) { throw "The Windows Rolldown native binding could not be installed." }
+          }
+          if (-not (Test-Path "node_modules/@rolldown/binding-win32-x64-msvc")) {
+            throw "The Windows Rolldown native binding is still missing."
+          }
       - name: Build production assets and refresh route tree
         shell: pwsh
         run: |
