@@ -926,7 +926,10 @@ function MaintenancePage() {
                 return <div key={facility.id} className="rounded-2xl border border-border bg-background p-4">
                   <div className="mb-4 flex items-start justify-between gap-2">
                     <span className="rounded-lg bg-primary/10 p-2.5 text-primary"><Building2 size={24}/></span>
-                    <span className="rounded-full border border-border px-2.5 py-1 text-xs font-bold text-muted-foreground">{facility.facilityNumber || index + 1}</span>
+                    <div className="flex items-center gap-2">
+                      <button type="button" className={smallButton} onClick={() => openQrForLocation(facility)} title="توليد QR لطلب صيانة لهذا المبنى"><QrCode size={14}/> QR</button>
+                      <span className="rounded-full border border-border px-2.5 py-1 text-xs font-bold text-muted-foreground">{facility.facilityNumber || index + 1}</span>
+                    </div>
                   </div>
                   {canManageBuildings ? <div className="space-y-2">
                     <input className={inputClass} value={facilityDrafts[facility.id] ?? facility.name} onChange={(event) => setFacilityDrafts((current) => ({ ...current, [facility.id]: event.target.value }))} aria-label="اسم المبنى"/>
@@ -938,14 +941,111 @@ function MaintenancePage() {
                     <div className="rounded-lg bg-muted/40 p-2"><p className="text-[11px] text-muted-foreground">عهد</p><p className="font-black">{facilityCustodies.length}</p></div>
                   </div>
                   <div className="mt-3 flex flex-wrap gap-2">
-                    <button className={smallButton} onClick={() => { setActiveTab("requests"); setOrderForm({ ...createOrderForm(), facilityId: facility.id }); setEditingOrderId(null); setShowOrderForm(true); }}>طلب صيانة</button>
-                    <button className={smallButton} onClick={() => { setActiveTab("preventive"); setTaskForm({ ...createTaskForm(), facilityId: facility.id }); setEditingTaskId(null); setShowTaskForm(true); }}>مهمة دورية</button>
+                    <button className={smallButton} onClick={() => { setActiveTab("requests"); setOrderForm({ ...createOrderForm(), facilityId: facility.id, subFacilityId: "" }); setEditingOrderId(null); setShowOrderForm(true); }}>طلب صيانة</button>
+                    <button className={smallButton} onClick={() => { setActiveTab("preventive"); setTaskForm({ ...createTaskForm(), facilityId: facility.id, subFacilityId: "" }); setEditingTaskId(null); setShowTaskForm(true); }}>مهمة دورية</button>
+                    {canManageBuildings && <button className={smallButton} onClick={() => openFacilityTreeEditor(facility)}><Network size={14}/> إدارة التفرعات</button>}
                   </div>
+                  {flattenBranchTree(facility.subFacilities || []).length > 0 ? (
+                    <div className="mt-4 space-y-1.5 border-r-2 border-border pr-3">
+                      {flattenBranchTree(facility.subFacilities || []).map((branch) => (
+                        <div key={branch.id} className="flex items-center justify-between gap-2 rounded-lg bg-muted/30 px-2.5 py-2 text-xs">
+                          <span className="font-semibold">{branch.name}</span>
+                          <button className={smallButton} onClick={() => openQrForLocation(facility, branch)} title="توليد QR لهذا الفرع"><QrCode size={13}/> QR</button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="mt-3 text-[11px] text-muted-foreground">لا توجد تفرعات؛ يمكنك إضافتها من «إدارة التفرعات».</p>
+                  )}
                 </div>;
               })}
               {facilities.length === 0 && <div className="col-span-full rounded-xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">لا توجد مبانٍ في الخريطة. أضف مبنى للبدء.</div>}
             </CardContent>
           </Card>
+          {editingFacility && canManageBuildings && (
+            <Card>
+              <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <CardTitle>تعديل خريطة التفرعات — {editingFacility.name || "مبنى جديد"}</CardTitle>
+                  <CardDescription>أضف الفروع والأقسام والغرف داخل بعضها بلا حد ثابت للمستويات، وأنشئ QR مستقلًا لكل فرع.</CardDescription>
+                </div>
+                <button className={smallButton} onClick={() => setEditingFacility(null)}><X size={14}/> إغلاق</button>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <Field label="اسم المبنى الرئيسي">
+                  <input className={inputClass} value={editingFacility.name} onChange={(event) => setEditingFacility((current: any) => current ? ({ ...current, name: event.target.value }) : current)} required />
+                </Field>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <h3 className="font-bold">شجرة الفروع</h3>
+                  <Button type="button" variant="outline" onClick={() => addBranch([])}><Plus className="ml-2" size={15}/> إضافة فرع رئيسي</Button>
+                </div>
+                {renderSubFacilitiesEditor(editingFacility.subFacilities || [])}
+                <div className="flex flex-wrap gap-2 border-t border-border pt-4">
+                  <Button onClick={saveFacilityTree}><CheckCircle2 className="ml-2" size={16}/> حفظ الخريطة</Button>
+                  <Button variant="outline" onClick={() => setEditingFacility(null)}>إلغاء</Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          <Card>
+            <CardHeader className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2"><Boxes className="text-primary" size={19}/> مخزن الصيانة</CardTitle>
+                <CardDescription>مخزن مستقل داخل صفحة المخازن، وأرصدة الأصناف المصروفة هنا تُحدّث حركة المخزون وتكلفة طلب الصيانة.</CardDescription>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {canManageStock && <Button onClick={() => setShowStockItemForm((current) => !current)}><PackagePlus className="ml-2" size={16}/> إضافة صنف / رصيد</Button>}
+                <Button asChild variant="outline"><Link to="/admin/inventory">فتح صفحة المخازن</Link></Button>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {warehouseLoadError && <p className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-xs text-destructive">{warehouseLoadError}</p>}
+              <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
+                <span>اسم المخزن: <strong className="text-foreground">{maintenanceWarehouse?.name || "جاري التجهيز…"}</strong></span>
+                <span>عدد الأصناف: <strong className="text-foreground">{maintenanceInventoryItems.filter((item: any) => maintenanceWarehouseStock.some((row: any) => row.inventory_id === item.id && Number(row.quantity) > 0)).length}</strong></span>
+                <span>إجمالي وحدات الرصيد: <strong className="text-foreground">{money(maintenanceWarehouseStock.reduce((sum: number, row: any) => sum + Math.max(0, Number(row.quantity) || 0), 0))}</strong></span>
+              </div>
+              {showStockItemForm && canManageStock && <form onSubmit={saveStockItem} className="grid gap-3 rounded-xl border border-border bg-muted/20 p-4 md:grid-cols-2 xl:grid-cols-3">
+                <Field label="اسم الصنف"><input className={inputClass} value={stockItemForm.name_ar} onChange={(event) => setStockItemForm((current) => ({ ...current, name_ar: event.target.value }))} required /></Field>
+                <Field label="الوحدة"><input className={inputClass} value={stockItemForm.unit} onChange={(event) => setStockItemForm((current) => ({ ...current, unit: event.target.value }))} required /></Field>
+                <Field label="الكمية الافتتاحية"><input className={inputClass} type="number" min="0" step="0.01" value={stockItemForm.quantity} onChange={(event) => setStockItemForm((current) => ({ ...current, quantity: event.target.value }))} required /></Field>
+                <Field label="حد التنبيه"><input className={inputClass} type="number" min="0" step="0.01" value={stockItemForm.min_level} onChange={(event) => setStockItemForm((current) => ({ ...current, min_level: event.target.value }))} required /></Field>
+                <Field label="تكلفة الوحدة (ج.م)"><input className={inputClass} type="number" min="0" step="0.01" value={stockItemForm.cost} onChange={(event) => setStockItemForm((current) => ({ ...current, cost: event.target.value }))} required /></Field>
+                <Field label="التصنيف"><input className={inputClass} value={stockItemForm.category} onChange={(event) => setStockItemForm((current) => ({ ...current, category: event.target.value }))} /></Field>
+                <div className="flex items-end gap-2">
+                  <Button type="submit" disabled={isSavingStockItem || !maintenanceWarehouse}>{isSavingStockItem ? "جاري الحفظ…" : "حفظ الصنف في المخزن"}</Button>
+                  <Button type="button" variant="outline" onClick={() => setShowStockItemForm(false)}>إلغاء</Button>
+                </div>
+              </form>}
+              {maintenanceWarehouseStock.filter((row: any) => Number(row.quantity) > 0).length ? (
+                <div className="overflow-x-auto rounded-xl border border-border">
+                  <table className="w-full text-sm">
+                    <thead className="bg-muted/40 text-right text-xs text-muted-foreground"><tr><th className="p-3">الصنف</th><th className="p-3">الوحدة</th><th className="p-3">الرصيد</th><th className="p-3">حد التنبيه</th><th className="p-3">تكلفة الوحدة</th></tr></thead>
+                    <tbody>
+                      {maintenanceWarehouseStock.filter((row: any) => Number(row.quantity) > 0).map((row: any) => {
+                        const item = maintenanceInventoryItems.find((entry: any) => entry.id === row.inventory_id);
+                        return <tr key={row.id || row.inventory_id} className="border-t border-border/60">
+                          <td className="p-3 font-bold">{item?.name_ar || "صنف غير معروف"}</td>
+                          <td className="p-3">{item?.unit || "—"}</td>
+                          <td className="p-3 font-black">{money(row.quantity)}</td>
+                          <td className="p-3">{money(row.min_level || item?.min_level || 0)}</td>
+                          <td className="p-3">{money(item?.cost || 0)} ج.م</td>
+                        </tr>;
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="rounded-xl border border-dashed border-border p-7 text-center">
+                  <Boxes className="mx-auto mb-2 text-muted-foreground" size={26}/>
+                  <p className="font-bold">مخزن الصيانة فارغ</p>
+                  <p className="mt-1 text-xs text-muted-foreground">لا توجد أرصدة أو بيانات تجريبية. أضف الأصناف الفعلية من هنا أو من صفحة المخازن.</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader><CardTitle>آخر طلبات الصيانة</CardTitle><CardDescription>آخر خمسة طلبات مسجلة في النظام.</CardDescription></CardHeader>
             <CardContent>
