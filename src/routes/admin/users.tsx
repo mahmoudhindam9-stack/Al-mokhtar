@@ -537,6 +537,63 @@ const PERMISSION_CATEGORIES: PermissionCategory[] = [
   },
 ];
 
+function defaultPermissionsForRole(role: string): UserPermission {
+  const permissions: Record<string, boolean> = {};
+  PERMISSION_CATEGORIES.forEach((category) => {
+    category.permissions.forEach((permission) => {
+      permissions[permission.key] = false;
+    });
+  });
+
+  if (role === "admin" || role === "super_admin") {
+    PERMISSION_CATEGORIES.forEach((category) => {
+      category.permissions.forEach((permission) => {
+        permissions[permission.key] = true;
+      });
+    });
+    return permissions;
+  }
+
+  if (role === "manager") {
+    const allowedCategories = [
+      "orders_sales",
+      "inventory_section",
+      "purchasing_section",
+      "accounting_section",
+      "approvals_section",
+      "reports_section",
+      "hr_section",
+      "maintenance_section",
+    ];
+    PERMISSION_CATEGORIES.forEach((category) => {
+      if (allowedCategories.includes(category.id)) {
+        category.permissions.forEach((permission) => {
+          permissions[permission.key] = true;
+        });
+      }
+    });
+    return permissions;
+  }
+
+  const roleKeys: Record<string, string[]> = {
+    cashier: [
+      "orders", "orders_view", "orders_create_custom", "orders_manage_carts", "orders_generate_qr",
+      "pos", "pos_access", "pos_create_custom_order", "pos_apply_discounts", "delivery", "delivery_view",
+      "delivery_update_status",
+    ],
+    captain: [
+      "captain", "captain_access", "captain_create_order", "captain_transfer_tables",
+      "captain_modify_items", "orders", "orders_view",
+    ],
+    kitchen: ["kitchen", "kitchen_view", "kitchen_change_status", "kitchen_modify_order"],
+  };
+  (roleKeys[role] || roleKeys.cashier).forEach((key) => {
+    permissions[key] = true;
+  });
+  return permissions as UserPermission;
+}
+
+
 function UsersPage() {
   const { toast } = useToast();
   const [erpState, setErpState] = useState(erpStore.getState());
@@ -708,7 +765,7 @@ function UsersPage() {
           throw new Error("تم إرسال طلب إنشاء الحساب لكن لم يرجع Supabase معرّف المستخدم. راجع إعدادات تأكيد البريد الإلكتروني.");
         }
 
-        const defaultPermissions = erpState.userPermissions[form.role] || {};
+        const defaultPermissions = defaultPermissionsForRole(form.role);
         const createdProfile = await authService.upsertProfile({
           id: authUserId,
           username: normalizedUsername,
@@ -835,10 +892,9 @@ function UsersPage() {
   const openPermissionsForUser = (user: SystemUser) => {
     setPermissionsUser(user);
     const currentPerms =
-      user.permissions ||
+      (user.permissions && Object.keys(user.permissions).length > 0 ? user.permissions : null) ||
       erpState.userPermissions[user.username] ||
-      erpState.userPermissions[user.role] ||
-      {};
+      defaultPermissionsForRole(user.role);
     setEditedPermissions({ ...currentPerms });
   };
 
