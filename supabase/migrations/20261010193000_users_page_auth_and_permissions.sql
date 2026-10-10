@@ -6,10 +6,35 @@ ALTER TABLE public.profiles
 ALTER TABLE public.profiles
   ADD COLUMN IF NOT EXISTS permissions jsonb NOT NULL DEFAULT '{}'::jsonb;
 
--- Permanently remove every legacy Auth identity that is NOT in the current Users page.
--- All Auth identities with no public.profiles record are old/unmanaged accounts and cannot remain.
--- Profiles visible in the current Users page are preserved; old users can later be removed from
--- that page, which deletes the Auth identity and its cascading records completely.
+-- Migrate accounts that were created by the previous Users page but whose Auth identity
+-- was never linked to public.profiles. The old form stored full_name/phone/role in user metadata
+-- and used one of these email suffixes. Start them with cashier permissions; the current Users
+-- page (and its locally saved role/ACL records) will restore their assigned role where available.
+INSERT INTO public.profiles (id, username, full_name, phone, role, permissions, created_at, updated_at)
+SELECT
+  u.id,
+  lower(trim(split_part(coalesce(u.email, ''), '@', 1))),
+  nullif(u.raw_user_meta_data ->> 'full_name', ''),
+  nullif(u.raw_user_meta_data ->> 'phone', ''),
+  'cashier',
+  '{}'::jsonb,
+  coalesce(u.created_at, now()),
+  coalesce(u.updated_at, now())
+FROM auth.users u
+WHERE lower(split_part(coalesce(u.email, ''), '@', 2))
+      IN ('restocash.local', 'almokhtar.local', 'mokhtar.local')
+  AND (
+    u.raw_user_meta_data ? 'full_name'
+    OR u.raw_user_meta_data ? 'phone'
+    OR u.raw_user_meta_data ? 'role'
+  )
+  AND NOT EXISTS (
+    SELECT 1 FROM public.profiles p WHERE p.id = u.id
+  )
+ON CONFLICT (id) DO NOTHING;
+
+-- Delete every remaining Auth identity that is not present in the current Users page.
+-- This removes legacy/default/unmanaged accounts completely instead of letting them log in.
 DELETE FROM auth.users u
 WHERE NOT EXISTS (
   SELECT 1 FROM public.profiles p WHERE p.id = u.id
