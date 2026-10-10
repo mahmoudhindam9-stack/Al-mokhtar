@@ -553,6 +553,25 @@ const PERMISSION_CATEGORIES: PermissionCategory[] = [
   },
 ];
 
+function hasDetailedAcl(value: Record<string, any> | null | undefined): boolean {
+  if (!value) return false;
+  return Object.keys(value).some((key) =>
+    key.includes("_view") ||
+    key.endsWith("_access") ||
+    key.startsWith("system_") ||
+    key.startsWith("maintenance_") ||
+    key.startsWith("mall_") ||
+    key === "super_admin_full_access",
+  );
+}
+
+function samePermissionMap(left: Record<string, any> | null | undefined, right: Record<string, any> | null | undefined): boolean {
+  const a = left || {};
+  const b = right || {};
+  const keys = new Set([...Object.keys(a), ...Object.keys(b)]);
+  return [...keys].every((key) => a[key] === b[key]);
+}
+
 function defaultPermissionsForRole(role: string): UserPermission {
   const permissions: Record<string, boolean> = {};
   PERMISSION_CATEGORIES.forEach((category) => {
@@ -683,6 +702,7 @@ function UsersPage() {
   useEffect(() => {
     let mounted = true;
     const hosted = isHostedDeployment();
+
     const refreshLocalState = () => {
       if (!mounted) return;
       setErpState(erpStore.getState());
@@ -690,22 +710,100 @@ function UsersPage() {
     };
     const unsubscribe = erpStore.subscribe(refreshLocalState);
 
-    if (hosted) {
-      authService.getUsers()
-        .then((profiles) => {
-          if (!mounted) return;
-          setLocalUsers(profiles.map(profileToSystemUser));
-        })
-        .catch((error) => {
-          console.error("Failed to load the shared hosted user list.", error);
-          if (mounted) {
-            toast({
-              title: "تعذر تحميل المستخدمين من قاعدة البيانات",
-              description: "تأكد من أنك تملك صلاحية إدارة المستخدمين وأن ترحيل الصلاحيات تم تطبيقه.",
-              variant: "destructive",
+    const loadHostedUsers = async () => {
+      const profiles = await authService.getUsers();
+      if (!mounted) return;
+
+      // The former online Users page kept an entry locally with an id like "u-<timestamp>"
+      // after creating its Supabase Auth identity. Restore that page's role and granular ACL
+      // into the shared profile once, then remove the obsolete local copy.
+      const storeState: any = erpStore.getState();
+      const legacyUsers: SystemUser[] = (storeState.users || []).filter(
+        (user: any) =>
+          user &&
+          /^u-\d+$/.test(String(user.id || "")) &&
+          user.username &&
+          !["u-admin", "u-manager", "u-cashier"].includes(String(user.id)),
+      );
+      const legacyByUsername = new Map(
+        legacyUsers.map((user) => [String(user.username).trim().toLowerCase(), user]),
+      );
+      const matchedLegacyIds = new Set<string>();
+      const reconciledProfiles: any[] = [];
+
+      for (const profile of profiles as any[]) {
+        const username = String(profile.username || "").trim().toLowerCase();
+        const legacy = legacyByUsername.get(username);
+        if (!legacy) {
+          reconciledProfiles.push(profile);
+          continue;
+        }
+
+        matchedLegacyIds.add(legacy.id);
+        const cachedPermissions =
+          legacy.permissions ||
+          storeState.userPermissions?.[legacy.username] ||
+          {};
+        const desiredPermissions = cachedPermissions.super_admin_full_access === true
+          ? defaultPermissionsForRole("super_admin")
+          : hasDetailedAcl(cachedPermissions)
+            ? cachedPermissions
+            : defaultPermissionsForRole(legacy.role || profile.role || "cashier");
+        const desiredProfile = {
+          id: profile.id,
+          username: profile.username,
+          full_name: legacy.full_name || profile.full_name || profile.username,
+          phone: legacy.phone || profile.phone || "",
+          role: legacy.role || profile.role || "cashier",
+          permissions: desiredPermissions,
+        };
+
+        const changed =
+          desiredProfile.full_name !== profile.full_name ||
+          desiredProfile.phone !== (profile.phone || "") ||
+          desiredProfile.role !== profile.role ||
+          !samePermissionMap(desiredProfile.permissions, profile.permissions);
+
+        if (changed) {
+          try {
+            const saved = await authService.upsertProfile({
+              ...desiredProfile,
+              updated_at: new Date().toISOString(),
             });
+            reconciledProfiles.push(saved);
+          } catch (error) {
+            // Keep the old row so the migration can be retried on the next visit.
+            console.error("Could not migrate a current Users-page account into its shared profile.", error);
+            reconciledProfiles.push(profile);
+            continue;
           }
-        });
+        } else {
+          reconciledProfiles.push(profile);
+        }
+
+        erpStore.deleteUser(legacy.id);
+      }
+
+      // A local-only row without a matching Auth profile cannot authenticate online.
+      // Remove that orphaned copy; the shared profiles list is the only hosted account source.
+      for (const legacy of legacyUsers) {
+        if (!matchedLegacyIds.has(legacy.id)) erpStore.deleteUser(legacy.id);
+      }
+
+      if (mounted) setLocalUsers(reconciledProfiles.map(profileToSystemUser));
+    };
+
+    if (hosted) {
+      loadHostedUsers().catch((error) => {
+        console.error("Failed to load the shared hosted user list.", error);
+        if (mounted) {
+          toast({
+            title: "تعذر تحميل المستخدمين من قاعدة البيانات",
+            description: "تأكد من أنك تملك صلاحية إدارة المستخدمين وأن ترحيل الصلاحيات تم تطبيقه.",
+            variant: "destructive",
+          });
+        }
+      });
     } else {
       setLocalUsers(localLoginUsers());
     }
