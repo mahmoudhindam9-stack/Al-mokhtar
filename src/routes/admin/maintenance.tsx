@@ -1038,12 +1038,12 @@ function MaintenancePage() {
                   <Button type="button" variant="outline" onClick={() => setShowStockItemForm(false)}>إلغاء</Button>
                 </div>
               </form>}
-              {maintenanceWarehouseStock.filter((row: any) => Number(row.quantity) > 0).length ? (
+              {maintenanceWarehouseStock.filter((row: any) => maintenanceInventoryItems.some((item: any) => item.id === row.inventory_id)).length ? (
                 <div className="overflow-x-auto rounded-xl border border-border">
                   <table className="w-full text-sm">
                     <thead className="bg-muted/40 text-right text-xs text-muted-foreground"><tr><th className="p-3">الصنف</th><th className="p-3">الوحدة</th><th className="p-3">الرصيد</th><th className="p-3">حد التنبيه</th><th className="p-3">تكلفة الوحدة</th></tr></thead>
                     <tbody>
-                      {maintenanceWarehouseStock.filter((row: any) => Number(row.quantity) > 0).map((row: any) => {
+                      {maintenanceWarehouseStock.filter((row: any) => maintenanceInventoryItems.some((item: any) => item.id === row.inventory_id)).map((row: any) => {
                         const item = maintenanceInventoryItems.find((entry: any) => entry.id === row.inventory_id);
                         return <tr key={row.id || row.inventory_id} className="border-t border-border/60">
                           <td className="p-3 font-bold">{item?.name_ar || "صنف غير معروف"}</td>
