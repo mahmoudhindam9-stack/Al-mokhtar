@@ -1885,7 +1885,14 @@ export class ERPStore {
   }
   deleteUser(id) {
     if (!this.state.users) return;
-    this.state.users = this.state.users.filter((u) => u.id !== id);
+    const target = this.state.users.find((user) => user.id === id);
+    this.state.users = this.state.users.filter((user) => user.id !== id);
+    const username = String(target?.username || "").trim().toLowerCase();
+    // Role presets share the legacy permission map; don't delete those template entries.
+    const reservedRoleNames = new Set(["admin", "super_admin", "manager", "cashier", "captain", "kitchen"]);
+    if (username && !reservedRoleNames.has(username)) {
+      delete this.state.userPermissions?.[username];
+    }
     this.saveState();
   }
   setCurrentUser(email) {
