@@ -262,3 +262,23 @@
     margin: 15mm;
   }
 }
+
+
+/* Al-Mokhtar enterprise branding and startup splash */
+.al-mokhtar-splash{position:fixed;inset:0;z-index:99999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:24px;overflow:hidden;background:radial-gradient(ellipse at 50% 34%,#173957 0%,#0a1b2c 48%,#030911 100%);color:#fff7dc;animation:al-mokhtar-splash-in .35s ease-out both}
+.al-mokhtar-splash-glow{position:absolute;width:min(76vw,650px);aspect-ratio:1;border-radius:50%;border:1px solid rgba(230,190,97,.32);box-shadow:0 0 70px rgba(218,169,74,.12),inset 0 0 50px rgba(218,169,74,.08);pointer-events:none;animation:al-mokhtar-splash-pulse 1.8s ease-in-out infinite alternate}
+.al-mokhtar-splash img{position:relative;width:min(76vw,450px);max-height:68vh;object-fit:contain;filter:drop-shadow(0 14px 28px rgba(0,0,0,.38))}
+.al-mokhtar-splash p{position:relative;margin:0;font-size:clamp(13px,2vw,17px);letter-spacing:.02em;color:#ead6a0;text-align:center}
+.al-mokhtar-splash button{position:relative;margin-top:8px;border:1px solid rgba(244,213,139,.6);border-radius:999px;background:rgba(244,213,139,.09);padding:8px 22px;color:#f6df9f;font-weight:700;cursor:pointer;transition:background .2s ease,transform .2s ease}
+.al-mokhtar-splash button:hover{background:rgba(244,213,139,.18);transform:translateY(-1px)}
+@keyframes al-mokhtar-splash-in{from{opacity:0}to{opacity:1}}
+@keyframes al-mokhtar-splash-pulse{from{transform:scale(.97);opacity:.55}to{transform:scale(1.02);opacity:1}}
+@media(prefers-reduced-motion:reduce){.al-mokhtar-splash,.al-mokhtar-splash-glow{animation:none}}
+
+/* Print-only identity block shared by policy and financial reports */
+.print-brand-header{display:none;align-items:center;justify-content:center;gap:12px;padding:0 0 10px;margin:0 0 14px;border-bottom:2px solid #c7a04b;color:#102b45;font-family:Tahoma,Arial,sans-serif}
+.print-brand-header img{width:58px;height:58px;object-fit:contain}
+.print-brand-header div{display:flex;flex-direction:column;gap:3px}
+.print-brand-header strong{font-size:20px;font-weight:900}
+.print-brand-header span{font-size:11px;color:#9a742c}
+@media print{.print-brand-header{display:flex!important;break-inside:avoid;print-color-adjust:exact;-webkit-print-color-adjust:exact}}

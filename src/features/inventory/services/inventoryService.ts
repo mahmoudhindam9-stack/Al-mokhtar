@@ -49,8 +49,8 @@ export const inventoryService = {
       const { data, error } = await supabase.from("inventory").select("*").order("name_ar");
       if (error) throw error;
       if (data && data.length > 0) {
-        localWarehouseStore.saveInventory(data as InventoryItem[]);
-        return data as InventoryItem[];
+        localWarehouseStore.saveInventory(data as unknown as InventoryItem[]);
+        return data as unknown as InventoryItem[];
       }
     } catch {
       // Fallback to local store
@@ -196,15 +196,15 @@ export const inventoryService = {
       let item: InventoryItem | null = null;
       if (id) {
         const { data, error } = await supabase
-          .from("inventory")
+          .from("inventory" as any)
           .update(payload)
           .eq("id", id)
           .select()
           .single();
-        if (!error && data) item = data as InventoryItem;
+        if (!error && data) item = data as unknown as InventoryItem;
       } else {
-        const { data, error } = await supabase.from("inventory").insert(payload).select().single();
-        if (!error && data) item = data as InventoryItem;
+        const { data, error } = await supabase.from("inventory" as any).insert(payload).select().single();
+        if (!error && data) item = data as unknown as InventoryItem;
       }
 
       if (item) {

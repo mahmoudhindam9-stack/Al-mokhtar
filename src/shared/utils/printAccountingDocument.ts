@@ -21,6 +21,7 @@ export function printAccountingDocument(options: {
 }) {
   if (typeof window === "undefined") return false;
 
+  const logoUrl = `${window.location.origin}/al-mokhtar-mark.svg`;
   const head = options.columns
     .map(
       (column) =>
@@ -60,11 +61,13 @@ export function printAccountingDocument(options: {
   .total{border:1px solid #cbd5e1;border-radius:6px;padding:10px;background:#f8fafc;display:flex;justify-content:space-between;font-size:12px}
   .signatures{margin-top:40px;display:grid;grid-template-columns:repeat(3,1fr);gap:20px;text-align:center;font-size:12px;color:#475569}
   .sig-line{border-top:1px dashed #94a3b8;margin-top:35px;padding-top:6px;font-weight:bold}
+  .brand-header{display:flex;align-items:center;justify-content:center;gap:12px;padding:0 0 10px;margin:0 0 12px;border-bottom:2px solid #c7a04b}.brand-header img{width:58px;height:58px;object-fit:contain}.brand-copy{display:flex;flex-direction:column;gap:3px}.brand-copy strong{font-size:20px;color:#102b45}.brand-copy span{font-size:11px;color:#9a742c}
   .footer{margin-top:30px;font-size:10px;color:#64748b;display:flex;justify-content:space-between;border-top:1px solid #e2e8f0;padding-top:10px}
   @media print{
     body{print-color-adjust:exact;-webkit-print-color-adjust:exact}
   }
   </style></head><body>
+  <div class="brand-header"><img src="${logoUrl}" alt="شعار المختار"/><div class="brand-copy"><strong>المختار</strong><span>لإدارة المشروعات</span></div></div>
   <div class="meta">
     <span>مستند رقم: ${escapeHtml(options.documentNo || "")}</span>
     <span>تاريخ الطباعة: ${escapeHtml(new Date().toLocaleDateString("ar-EG") + " " + new Date().toLocaleTimeString("ar-EG"))}</span>
@@ -132,9 +135,24 @@ export function printAccountingDocument(options: {
 export function printRawHtml(htmlContent: string) {
   if (typeof window === "undefined") return false;
 
+  let brandedHtml = htmlContent;
+  if (!/al-mokhtar-mark\.svg/i.test(brandedHtml)) {
+    const brandBlock = `<div class="al-mokhtar-print-brand" dir="rtl"><img src="${window.location.origin}/al-mokhtar-mark.svg" alt="شعار المختار"/><div><strong>المختار</strong><span>لإدارة المشروعات</span></div></div>`;
+    const brandStyle = `<style>
+      .al-mokhtar-print-brand{display:flex;align-items:center;justify-content:center;gap:10px;padding:0 0 8px;margin:0 0 10px;border-bottom:2px solid #c7a04b;color:#102b45;font-family:Tahoma,Arial,sans-serif;text-align:right}
+      .al-mokhtar-print-brand img{width:48px;height:48px;object-fit:contain}
+      .al-mokhtar-print-brand div{display:flex;flex-direction:column;gap:3px}
+      .al-mokhtar-print-brand strong{font-size:17px;font-weight:900}
+      .al-mokhtar-print-brand span{font-size:10px;color:#9a742c}
+      @media print{.al-mokhtar-print-brand{break-inside:avoid;print-color-adjust:exact;-webkit-print-color-adjust:exact}}
+    </style>`;
+    brandedHtml = brandedHtml.replace(/<\/head>/i, brandStyle + "</head>");
+    brandedHtml = brandedHtml.replace(/<body\b([^>]*)>/i, "<body$1>" + brandBlock);
+  }
+
   const printWindow = window.open("", "_blank", "width=1100,height=800");
   if (printWindow) {
-    printWindow.document.write(htmlContent);
+    printWindow.document.write(brandedHtml);
     printWindow.document.close();
     printWindow.focus();
     setTimeout(() => {
@@ -160,7 +178,7 @@ export function printRawHtml(htmlContent: string) {
     const doc = iframe.contentWindow?.document || iframe.contentDocument;
     if (doc) {
       doc.open();
-      doc.write(htmlContent);
+      doc.write(brandedHtml);
       doc.close();
       setTimeout(() => {
         iframe.contentWindow?.focus();
@@ -171,9 +189,7 @@ export function printRawHtml(htmlContent: string) {
   } catch (err) {
     console.error("[Print Fallback]", err);
   }
-
-  // window.print();
-  return true;
+  return false;
 }
 
 export function printImportReportDocument(reportData: any) {

@@ -1,4 +1,3 @@
-import { Building2, FolderKanban } from "lucide-react";
 import React from "react";
 
 export function RestocashLogo({
@@ -14,48 +13,36 @@ export function RestocashLogo({
 }) {
   const isWhite = variant === "white";
   return (
-    <div className={`flex flex-col ${className}`}>
-      <div className="flex items-center gap-2 font-black tracking-tight">
-        <div
-          className={`relative flex items-center justify-center p-1.5 rounded-xl ${
-            isWhite
-              ? "bg-white/15 text-white"
-              : "bg-primary/10 text-primary border border-primary/20"
-          }`}
-        >
-          <Building2 size={size} strokeWidth={2.5} />
-        </div>
-        <div className="flex flex-col text-right">
-          <span
-            className={
-              isWhite
-                ? "text-white font-black"
-                : "bg-gradient-to-l from-primary via-emerald-600 to-primary bg-clip-text text-transparent font-black"
-            }
-            style={{ fontSize: size * 0.9, lineHeight: 1.1 }}
-          >
-            المختار
-          </span>
-          <span
-            className={`font-bold tracking-tight ${
-              isWhite ? "text-white/80" : "text-emerald-600 dark:text-emerald-400"
-            }`}
-            style={{ fontSize: Math.max(10, size * 0.45) }}
-          >
-            لإدارة المشروعات
-          </span>
-        </div>
-      </div>
-      {showDeveloper && (
+    <div className={`inline-flex items-center gap-2.5 ${className}`} dir="rtl">
+      <img
+        src="/al-mokhtar-mark.svg"
+        alt=""
+        aria-hidden="true"
+        className="shrink-0 object-contain drop-shadow-sm"
+        style={{ width: Math.max(34, size * 1.55), height: Math.max(34, size * 1.55) }}
+      />
+      <div className="min-w-0 flex flex-col text-right">
         <span
-          className={`text-[0.45em] font-medium opacity-80 tracking-wide block mt-0.5 ${
-            isWhite ? "text-white/70" : "text-slate-500"
-          }`}
-          style={{ fontSize: Math.max(9, size * 0.35) }}
+          className={isWhite ? "font-black text-white" : "font-black text-[#102b45] dark:text-[#f4d58b]"}
+          style={{ fontSize: size * 0.9, lineHeight: 1.13, letterSpacing: "-0.035em" }}
         >
-          نظام الإدارة والمحاسبة ERP
+          المختار
         </span>
-      )}
+        <span
+          className={isWhite ? "font-bold text-white/85" : "font-bold text-[#b48732] dark:text-[#e7bf64]"}
+          style={{ fontSize: Math.max(10, size * 0.45), lineHeight: 1.35 }}
+        >
+          لإدارة المشروعات
+        </span>
+        {showDeveloper && (
+          <span
+            className={isWhite ? "mt-0.5 text-white/65" : "mt-0.5 text-slate-500 dark:text-slate-400"}
+            style={{ fontSize: Math.max(9, size * 0.32), lineHeight: 1.35 }}
+          >
+            نظام الإدارة والمحاسبة ERP
+          </span>
+        )}
+      </div>
     </div>
   );
 }
