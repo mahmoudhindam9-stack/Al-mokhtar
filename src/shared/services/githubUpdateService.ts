@@ -57,7 +57,8 @@ class GitHubUpdateService {
           if (
             !repo ||
             repo === "mahmoudhindam9/Restocash" ||
-            repo === "mahmoudhindam9-stack/jupa-se"
+            repo === "mahmoudhindam9-stack/jupa-se" ||
+            repo === "mahmoudhindam9-stack/jupa-sep"
           ) {
             repo = DEFAULT_GITHUB_REPO;
           }
@@ -254,7 +255,7 @@ class GitHubUpdateService {
                   currentVersion: CURRENT_VERSION,
                   latestVersion: remoteVersion,
                   hasUpdate,
-                  releaseName: `Restocash v${remoteVersion}`,
+                  releaseName: `المختار لإدارة المشروعات v${remoteVersion}`,
                   releaseNotes: `نسخة ${remoteVersion} من فرع ${branch}. تتضمن أحدث التحسينات ومزامنة الأكواد.`,
                   releaseUrl: `https://github.com/${repo}/tree/${branch}`,
                   publishedAt: timestamp,
@@ -366,48 +367,40 @@ class GitHubUpdateService {
    * - Re-syncs ERP state
    * - Reloads the latest code
    */
+  /**
+   * Opens the published GitHub release for a real update download.
+   * Browser code cannot overwrite an installed desktop application's files;
+   * the user must download and run the signed-off installer package.
+   */
   public async performUpdate(): Promise<{ success: boolean; message: string }> {
     try {
-      // 1. Clear caches if available
-      if (typeof window !== "undefined" && "caches" in window) {
-        try {
-          const cacheKeys = await window.caches.keys();
-          await Promise.all(cacheKeys.map((key) => window.caches.delete(key)));
-        } catch (e) {
-          console.warn("Could not clear cache storage:", e);
-        }
+      const settings = this.getSettings();
+      const status = this.getStatus();
+      const targetUrl =
+        status.source === "release" && status.releaseUrl
+          ? status.releaseUrl
+          : `https://github.com/${settings.repo || DEFAULT_GITHUB_REPO}/releases`;
+
+      if (typeof window === "undefined") {
+        return {
+          success: false,
+          message: "افتح صفحة إصدارات GitHub من داخل البرنامج لتنزيل حزمة التحديث.",
+        };
       }
 
-      // 2. Unregister service workers if any
-      if (typeof navigator !== "undefined" && "serviceWorker" in navigator) {
-        try {
-          const registrations = await navigator.serviceWorker.getRegistrations();
-          for (const reg of registrations) {
-            await reg.update().catch(() => {});
-          }
-        } catch (e) {
-          console.warn("ServiceWorker update error:", e);
-        }
+      const opened = window.open(targetUrl, "_blank", "noopener,noreferrer");
+      if (!opened) {
+        window.location.href = targetUrl;
       }
-
-      // 3. Store update applied timestamp
-      localStorage.setItem("restocash_last_updated_at", new Date().toISOString());
-
-      // 4. Force reload after a brief moment
-      setTimeout(() => {
-        if (typeof window !== "undefined") {
-          window.location.reload();
-        }
-      }, 1000);
-
       return {
         success: true,
-        message: "تم تحديث النظام ومسح الذاكرة المؤقتة بنجاح، جاري إعادة تحميل الصفحة...",
+        message:
+          "تم فتح صفحة إصدارات المختار على GitHub. نزّل حزمة Install/Uninstall وشغّل Install لتحديث ملفات البرنامج. إعادة تحميل الصفحة وحدها لا تستبدل ملفات التطبيق.",
       };
     } catch (err: any) {
       return {
         success: false,
-        message: err?.message || "تعذر إكمال عملية التحديث التلقائي.",
+        message: err?.message || "تعذر فتح صفحة تنزيل تحديث المختار.",
       };
     }
   }
