@@ -22,7 +22,6 @@ import {
   Undo2,
 } from "lucide-react";
 import { erpStore, UserPermission, SystemUser } from "@/shared/services/erpStore";
-import { authService } from "@/features/auth/services/authService";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -592,57 +591,67 @@ function UsersPage() {
     return unsub;
   }, []);
 
+  const activeSessionUserId = () => {
+    if (typeof window === "undefined") return "";
+    return localStorage.getItem("restocash_authenticated_user_id") ||
+      sessionStorage.getItem("restocash_authenticated_user_id") || "";
+  };
+
   const upsert = async () => {
-    const emailToUse = form.username.includes("@")
-      ? form.username
-      : `${form.username}@restocash.local`;
+    const username = form.username.trim();
+    if (!username || !form.full_name.trim()) {
+      toast({ title: "بيانات غير مكتملة", description: "أدخل الاسم الكامل واسم المستخدم.", variant: "destructive" });
+      return;
+    }
+
+    const duplicate = erpStore.getUsers().some((user) =>
+      user.username.trim().toLowerCase() === username.toLowerCase() && user.id !== editing?.id
+    );
+    if (duplicate) {
+      toast({ title: "اسم المستخدم موجود", description: "اختر اسم مستخدم مختلفًا.", variant: "destructive" });
+      return;
+    }
 
     if (editing) {
-      // In a real app we'd also update Supabase if email/password changed,
-      // but for this MVP we just update the local metadata.
       erpStore.upsertUser({
         ...editing,
-        full_name: form.full_name,
-        username: form.username,
-        phone: form.phone,
+        full_name: form.full_name.trim(),
+        username,
+        phone: form.phone.trim(),
         role: form.role,
         ...(form.password ? { password: form.password } : {}),
       });
       setEditing(null);
     } else {
-      try {
-        await authService.signUpNewUser(emailToUse, form.password || "12345678", {
-          full_name: form.full_name,
-          phone: form.phone,
-          role: form.role,
-        });
-      } catch (err: any) {
-        toast({
-          title: "خطأ في إنشاء المستخدم",
-          description: err.message || "حدث خطأ غير معروف",
-          variant: "destructive",
-        });
-        setIsConfirmUpsertOpen(false);
-        return;
-      }
-
       erpStore.upsertUser({
         id: `u-${Date.now()}`,
-        full_name: form.full_name,
-        username: form.username,
-        phone: form.phone,
+        full_name: form.full_name.trim(),
+        username,
+        phone: form.phone.trim(),
         role: form.role,
         password: form.password,
         created_at: new Date().toISOString(),
       });
     }
+
     setForm({ full_name: "", username: "", phone: "", password: "", role: "cashier" });
     setIsConfirmUpsertOpen(false);
+    toast({ title: editing ? "تم تحديث المستخدم" : "تم إنشاء المستخدم", description: "تم حفظ الحساب في قائمة مستخدمي النظام." });
   };
 
   const deleteUser = () => {
-    if (userToDelete) {
+    const activeId = activeSessionUserId();
+    if (!userToDelete) {
+      setIsConfirmDeleteOpen(false);
+      return;
+    }
+    if (userToDelete === activeId) {
+      toast({ title: "لا يمكن حذف المستخدم الحالي", description: "سجّل الخروج أو استخدم حسابًا مخولًا آخر قبل حذف هذا الحساب.", variant: "destructive" });
+    } else if (erpStore.getUsers().length <= 1) {
+      toast({ title: "يجب الاحتفاظ بمستخدم واحد على الأقل", variant: "destructive" });
+    } else {
       erpStore.deleteUser(userToDelete);
+      toast({ title: "تم حذف المستخدم", description: "لن يتمكن الحساب المحذوف من تسجيل الدخول بعد ذلك." });
     }
     setUserToDelete(null);
     setIsConfirmDeleteOpen(false);
@@ -938,7 +947,7 @@ function UsersPage() {
                         setUserToDelete(u.id);
                         setIsConfirmDeleteOpen(true);
                       }}
-                      disabled={u.username === "admin"}
+                      disabled={u.id === activeSessionUserId() || localUsers.length <= 1}
                     >
                       <Trash2 size={14} />
                     </Button>
