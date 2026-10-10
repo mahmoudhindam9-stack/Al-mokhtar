@@ -108,17 +108,12 @@ function MallManagementPage() {
     () => erpStore.getState(),
   );
 
-  const currentUserEmail =
-    typeof window !== "undefined"
-      ? localStorage.getItem("restocash_auth_user") ||
-        sessionStorage.getItem("restocash_auth_user") ||
-        "admin"
-      : "admin";
-  const currentUserRole =
-    typeof window !== "undefined"
-      ? localStorage.getItem("restocash_user_role") || "super_admin"
-      : "super_admin";
-  const currentUserPerms = state.userPermissions?.[currentUserEmail] || {};
+  const activeSystemUser = (state.users || []).find((user: any) => user.username === state.currentUser);
+  const currentUserEmail = activeSystemUser?.username || "";
+  const currentUserRole = activeSystemUser?.role || "";
+  const currentUserPerms = activeSystemUser
+    ? state.userPermissions?.[activeSystemUser.username] || {}
+    : {};
   const shops: MallShop[] = state.mallShops || [];
   const payments: MallRentalPayment[] = state.mallPayments || [];
   const gardenRevenues: MallGardenRevenue[] = state.mallGardenRevenues || [];
