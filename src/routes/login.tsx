@@ -33,6 +33,12 @@ function safeInternalRedirect(value: string | null): string {
   return value && value.startsWith("/") && !value.startsWith("//") ? value : "/admin";
 }
 
+function getLocalLoginUsers(): SystemUser[] {
+  return erpStore.getUsers().filter(
+    (user) => typeof user.password === "string" && user.password.length > 0,
+  );
+}
+
 async function signInHostedUser(username: string, password: string) {
   const normalized = username.trim().toLowerCase();
   const candidates = normalized.includes("@")
@@ -104,14 +110,14 @@ function LoginPage() {
   const [rememberMe, setRememberMe] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [hasLocalAccounts, setHasLocalAccounts] = useState(() => erpStore.getUsers().length > 0);
+  const [hasLocalAccounts, setHasLocalAccounts] = useState(() => getLocalLoginUsers().length > 0);
   const [bootstrapFullName, setBootstrapFullName] = useState("");
   const [bootstrapUsername, setBootstrapUsername] = useState("");
   const [bootstrapPassword, setBootstrapPassword] = useState("");
   const [bootstrapConfirm, setBootstrapConfirm] = useState("");
 
   useEffect(() => {
-    return erpStore.subscribe(() => setHasLocalAccounts(erpStore.getUsers().length > 0));
+    return erpStore.subscribe(() => setHasLocalAccounts(getLocalLoginUsers().length > 0));
   }, []);
 
   const createFirstLocalAdmin = (event: React.FormEvent<HTMLFormElement>) => {
@@ -119,7 +125,7 @@ function LoginPage() {
     if (isHostedDeployment()) return;
 
     // IndexedDB may have restored existing user-page accounts after the initial render.
-    if (erpStore.getUsers().length > 0) {
+    if (getLocalLoginUsers().length > 0) {
       setHasLocalAccounts(true);
       setError("تم العثور على حسابات موجودة في صفحة المستخدمين. سجّل الدخول بهذه الحسابات.");
       return;
@@ -215,7 +221,7 @@ function LoginPage() {
       }
 
       // Offline/local mode: accounts are read from the local ERP store only.
-      const users = erpStore.getUsers() as SystemUser[];
+      const users = getLocalLoginUsers();
       const user = users.find((candidate) => {
         if (!candidate) return false;
         const candidateUsername = (candidate.username || "").trim().toLowerCase();
