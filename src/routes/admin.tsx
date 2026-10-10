@@ -21,6 +21,7 @@ import {
   Building2,
   Settings,
   Wrench,
+  ShieldCheck,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -270,6 +271,14 @@ export function AdminLayout({ children }: { children?: ReactNode }) {
     return pathname.startsWith(item.to);
   };
   const activeNavItem = nav.find(isNavItemActive);
+  const financialPermissionKeys = ["accounting", "accounting_view", "treasury", "journal_approval", "expense_approval", "revenue_approval", "cost_centers"];
+  const inventoryPermissionKeys = ["inventory", "inventory_view", "purchasing", "purchasing_view", "production", "production_view"];
+  const requiredForPath = pathname === "/admin"
+    ? []
+    : pathname.startsWith("/admin/accounts") || pathname.startsWith("/admin/ledger") || pathname.startsWith("/admin/ai-accountant")
+      ? financialPermissionKeys
+      : nav.find((item) => item.to !== "/admin" && pathname.startsWith(item.to))?.permissionKeys || [];
+  const canAccessCurrentRoute = hasAnyPermission(user, requiredForPath);
 
   const renderSidebarNav = (onItemClick?: () => void) => (
     <div className="flex flex-col h-full bg-card text-card-foreground">
@@ -283,7 +292,7 @@ export function AdminLayout({ children }: { children?: ReactNode }) {
         <div className="px-3 py-1.5 text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
           {location.pathname.startsWith("/admin") ? "لوحة التحكم الرئيسية" : "الإدارة"}
         </div>
-        {nav.map((item) => {
+        {nav.filter((item) => hasAnyPermission(user, item.permissionKeys)).map((item) => {
           const active = isNavItemActive(item);
           return (
             <Link
@@ -331,17 +340,19 @@ export function AdminLayout({ children }: { children?: ReactNode }) {
         </Link>
 
         {/* System Version & Update Status */}
-        <div className="pt-2 border-t border-border/60 flex items-center justify-between text-[11px] text-muted-foreground px-1">
-          <Link
-            to="/admin/system-update"
-            className="flex items-center gap-1.5 hover:text-foreground transition font-medium"
-            title="انتقل إلى صفحة خيارات المطور والتحديثات"
-          >
-            <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block animate-pulse" />
-            <span>الإصدار: v{CURRENT_VERSION}</span>
-          </Link>
-          <span className="text-[10px] text-muted-foreground/70">GitHub Sync</span>
-        </div>
+        {hasAnyPermission(user, ["system_backup_update", "developer_options"]) && (
+          <div className="pt-2 border-t border-border/60 flex items-center justify-between text-[11px] text-muted-foreground px-1">
+            <Link
+              to="/admin/system-update"
+              className="flex items-center gap-1.5 hover:text-foreground transition font-medium"
+              title="انتقل إلى صفحة خيارات المطور والتحديثات"
+            >
+              <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block animate-pulse" />
+              <span>الإصدار: v{CURRENT_VERSION}</span>
+            </Link>
+            <span className="text-[10px] text-muted-foreground/70">GitHub Sync</span>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -392,7 +403,16 @@ export function AdminLayout({ children }: { children?: ReactNode }) {
             <LanguageSwitcher />
           </div>
         </header>
-        <div className="p-4 sm:p-6 flex-1">{children || <Outlet />}</div>
+        <div className="p-4 sm:p-6 flex-1">
+          {canAccessCurrentRoute ? (children || <Outlet />) : (
+            <div role="alert" className="mx-auto mt-10 max-w-xl rounded-2xl border border-border bg-card p-8 text-center shadow-sm">
+              <ShieldCheck size={34} className="mx-auto mb-3 text-primary" />
+              <h2 className="text-xl font-black text-foreground">ليس لديك صلاحية لفتح هذه الصفحة</h2>
+              <p className="mt-2 text-sm text-muted-foreground">تُحدد صلاحيات الوصول من صفحة المستخدمين. اطلب من مسؤول النظام تفعيل صلاحية القسم لحسابك.</p>
+              <Button className="mt-5" onClick={() => navigate({ to: "/admin" })}>العودة إلى لوحة التحكم</Button>
+            </div>
+          )}
+        </div>
       </main>
     </div>
   );
