@@ -89,31 +89,31 @@ function createSupabaseFetch(supabaseKey: string): typeof fetch {
 }
 
 function createSupabaseClient() {
-  // Al-Mokhtar has no dedicated Supabase project configured yet. Never fall
-  // back to the shared Juba database; use the offline transport unless an
-  // explicit, separate Al-Mokhtar project URL and key are configured.
-  const BLOCKED_SHARED_PROJECT_HOST = "myqtvbfibvgxkqwxvuru.supabase.co";
+  // Al-Mokhtar only reads its own explicitly named configuration. Generic
+  // Supabase variables from another AI Studio project are deliberately ignored.
   const OFFLINE_SUPABASE_URL = "http://127.0.0.1:54321";
   const OFFLINE_SUPABASE_KEY = "al-mokhtar-offline-mode";
 
   const rawUrlCandidates = [
     typeof import.meta !== "undefined" && import.meta.env
-      ? import.meta.env.VITE_SUPABASE_URL
+      ? import.meta.env.VITE_AL_MOKHTAR_SUPABASE_URL
       : undefined,
-    typeof process !== "undefined" && process.env ? process.env.VITE_SUPABASE_URL : undefined,
-    typeof process !== "undefined" && process.env ? process.env.SUPABASE_URL : undefined,
+    typeof process !== "undefined" && process.env
+      ? process.env.VITE_AL_MOKHTAR_SUPABASE_URL || process.env.AL_MOKHTAR_SUPABASE_URL
+      : undefined,
   ];
 
   const configuredUrl = rawUrlCandidates.find(isValidHttpUrl);
   const rawKeyCandidates = [
     typeof import.meta !== "undefined" && import.meta.env
-      ? import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
+      ? import.meta.env.VITE_AL_MOKHTAR_SUPABASE_ANON_KEY ||
+        import.meta.env.VITE_AL_MOKHTAR_SUPABASE_PUBLISHABLE_KEY
       : undefined,
     typeof process !== "undefined" && process.env
-      ? process.env.VITE_SUPABASE_ANON_KEY ||
-        process.env.SUPABASE_ANON_KEY ||
-        process.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
-        process.env.SUPABASE_PUBLISHABLE_KEY
+      ? process.env.VITE_AL_MOKHTAR_SUPABASE_ANON_KEY ||
+        process.env.AL_MOKHTAR_SUPABASE_ANON_KEY ||
+        process.env.VITE_AL_MOKHTAR_SUPABASE_PUBLISHABLE_KEY ||
+        process.env.AL_MOKHTAR_SUPABASE_PUBLISHABLE_KEY
       : undefined,
   ];
   const configuredKey = rawKeyCandidates.find(
@@ -124,11 +124,9 @@ function createSupabaseClient() {
       !candidate.startsWith("https://"),
   );
 
-  const configuredHost = configuredUrl ? new URL(configuredUrl).hostname.toLowerCase() : "";
-  const isSharedJubaProject = configuredHost === BLOCKED_SHARED_PROJECT_HOST;
-  const hasDedicatedProjectConfiguration =
-    !!configuredUrl && !!configuredKey && !isSharedJubaProject;
-
+  // Fail closed by default: without an Al-Mokhtar-specific URL and publishable
+  // key, the transport serves local empty results and never sends a request.
+  const hasDedicatedProjectConfiguration = !!configuredUrl && !!configuredKey;
   const SUPABASE_URL = hasDedicatedProjectConfiguration
     ? configuredUrl!
     : OFFLINE_SUPABASE_URL;
@@ -164,8 +162,7 @@ function createSupabaseClient() {
 
   return createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
     global: {
-      // With the offline placeholder key this transport returns local empty
-      // results and never calls fetch(), so no request reaches Juba.
+      // With the offline placeholder key, requests are answered locally.
       fetch: createSupabaseFetch(SUPABASE_PUBLISHABLE_KEY),
     },
     auth: {
@@ -174,7 +171,6 @@ function createSupabaseClient() {
       autoRefreshToken: true,
     },
   });
-}
 
 let _supabase: ReturnType<typeof createSupabaseClient> | undefined;
 
