@@ -56,7 +56,8 @@ const roleLabels: Record<string, string> = {
 };
 
 function isHostedDeployment(): boolean {
-  // Keep server-rendered HTML consistent with the browser on production hosts.
+  // AI Studio's editable preview must use local user records and avoid remote auth.
+  if (import.meta.env.DEV) return false;
   if (typeof window === "undefined") return import.meta.env.PROD;
   const host = window.location.hostname.toLowerCase();
   return !["localhost", "127.0.0.1", "::1", "[::1]"].includes(host) && !host.endsWith(".localhost");
