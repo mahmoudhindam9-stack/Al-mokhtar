@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RestocashLogo } from "@/components/RestocashLogo";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
-import { supabase } from "@/integrations/supabase/client";
+import { hasDedicatedSupabaseConfiguration, supabase } from "@/integrations/supabase/client";
 import { erpStore, type SystemUser } from "@/shared/services/erpStore";
 
 export const Route = createFileRoute("/login")({
@@ -20,6 +20,8 @@ function isLocalBrowserHost(hostname: string): boolean {
 }
 
 function isHostedDeployment(): boolean {
+  // Without a dedicated Al-Mokhtar database, the deployed app must use local browser accounts.
+  if (!hasDedicatedSupabaseConfiguration()) return false;
   // Google AI Studio runs the editable preview in Vite development mode,
   // sometimes on a non-local hostname. Keep that preview on the local ERP
   // account path; public production builds must still use Supabase auth.
@@ -202,7 +204,7 @@ function LoginPage() {
         <p className="text-xs text-muted-foreground text-center">
           {isHostedDeployment()
             ? "نسخة الإنترنت: يلزم حساب مدير موثّق في مشروع Supabase."
-            : "النسخة المحلية تعمل دون اتصال بالإنترنت وتحتفظ ببيانات هذا الجهاز."}
+            : "الوضع المحلي المؤقت: بياناتك محفوظة في هذا المتصفح فقط ولا تُرسل إلى قاعدة سحابية."}
         </p>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
