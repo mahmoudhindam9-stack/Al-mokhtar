@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { erpStore, UserPermission, SystemUser } from "@/shared/services/erpStore";
 import { authService } from "@/features/auth/services/authService";
+import { hasDedicatedSupabaseConfiguration } from "@/integrations/supabase/client";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -56,6 +57,8 @@ const roleLabels: Record<string, string> = {
 };
 
 function isHostedDeployment(): boolean {
+  // Use local user records while no dedicated Al-Mokhtar database is configured.
+  if (!hasDedicatedSupabaseConfiguration()) return false;
   // AI Studio's editable preview must use local user records and avoid remote auth.
   if (import.meta.env.DEV) return false;
   if (typeof window === "undefined") return import.meta.env.PROD;
