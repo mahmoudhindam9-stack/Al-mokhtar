@@ -33,7 +33,7 @@ A complete **project management and accounting ERP** built on [TanStack Start](h
    ```bash
    npm install
    ```
-2. Copy env and fill in your Supabase project:
+2. Copy the environment template (the app works locally without cloud credentials):
    ```bash
    cp .env.example .env.local
    ```
@@ -42,13 +42,13 @@ A complete **project management and accounting ERP** built on [TanStack Start](h
    npm run dev   # http://localhost:3000
    ```
 
-> The committed `.env.example` keys are the project's public anon credentials and are safe to use for local development; replace them with your own project's values for production.
+The application does not contain a default remote database connection. To enable cloud features later, create a dedicated Al-Mokhtar database and configure only the `VITE_AL_MOKHTAR_SUPABASE_URL` and `VITE_AL_MOKHTAR_SUPABASE_PUBLISHABLE_KEY` variables. Generic Supabase variables from other apps are intentionally ignored.
 
-## Supabase
+## Database
 
-- [Start local DB](https://supabase.com/docs/guides/cli): `npx supabase start`
-- Migrations live in [`supabase/migrations`](./supabase/migrations) — apply with `npx supabase db push` or via the dashboard.
-- Generated types: [`src/integrations/supabase/types.ts`](./src/integrations/supabase/types.ts)
+- Database migrations for the future dedicated Al-Mokhtar project live in [`supabase/migrations`](./supabase/migrations).
+- Do not apply these migrations to another application's database.
+- Generated types: [`src/integrations/supabase/types.ts`](./src/integrations/supabase/types.ts).
 
 ## Scripts
 
