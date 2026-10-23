@@ -171,6 +171,7 @@ function createSupabaseClient() {
       autoRefreshToken: true,
     },
   });
+}
 
 let _supabase: ReturnType<typeof createSupabaseClient> | undefined;
 
