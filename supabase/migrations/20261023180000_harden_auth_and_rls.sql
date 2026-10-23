@@ -167,10 +167,12 @@ REVOKE EXECUTE ON FUNCTION public.start_order_preparing(uuid, boolean) FROM anon
 REVOKE EXECUTE ON FUNCTION public.cancel_order(uuid) FROM anon, PUBLIC;
 REVOKE EXECUTE ON FUNCTION public.process_order_inventory(uuid, boolean) FROM anon, PUBLIC;
 REVOKE EXECUTE ON FUNCTION public.reverse_order_inventory(uuid) FROM anon, PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.convert_to_inventory_unit(numeric, text, text) FROM anon, PUBLIC;
 GRANT EXECUTE ON FUNCTION public.start_order_preparing(uuid, boolean) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.cancel_order(uuid) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.process_order_inventory(uuid, boolean) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.reverse_order_inventory(uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.convert_to_inventory_unit(numeric, text, text) TO authenticated;
 
 -- This test RPC writes and deletes production-shaped data; never expose it to end users.
 REVOKE EXECUTE ON FUNCTION public.run_e2e_inventory_test() FROM anon, PUBLIC, authenticated;
