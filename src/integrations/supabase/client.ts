@@ -89,10 +89,12 @@ function createSupabaseFetch(supabaseKey: string): typeof fetch {
 }
 
 function createSupabaseClient() {
-  const DEFAULT_SUPABASE_URL = "https://myqtvbfibvgxkqwxvuru.supabase.co";
-  const MYQTV_PROJECT_REF = "myqtvbfibvgxkqwxvuru";
-  const MYQTV_ANON_KEY =
-    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im15cXR2YmZpYnZneGtxd3h2dXJ1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ4MjY0NjgsImV4cCI6MjEwMDQwMjQ2OH0.LDFW826N2GRzG9WnLHgYxoeOcTkDOeLjTiFK6aQ-BSE";
+  // Al-Mokhtar has no dedicated Supabase project configured yet. Never fall
+  // back to the shared Juba database; use the offline transport unless an
+  // explicit, separate Al-Mokhtar project URL and key are configured.
+  const BLOCKED_SHARED_PROJECT_HOST = "myqtvbfibvgxkqwxvuru.supabase.co";
+  const OFFLINE_SUPABASE_URL = "http://127.0.0.1:54321";
+  const OFFLINE_SUPABASE_KEY = "al-mokhtar-offline-mode";
 
   const rawUrlCandidates = [
     typeof import.meta !== "undefined" && import.meta.env
@@ -102,48 +104,42 @@ function createSupabaseClient() {
     typeof process !== "undefined" && process.env ? process.env.SUPABASE_URL : undefined,
   ];
 
-  const SUPABASE_URL = rawUrlCandidates.find(isValidHttpUrl) || DEFAULT_SUPABASE_URL;
-
-  let SUPABASE_PUBLISHABLE_KEY =
-    (typeof import.meta !== "undefined" && import.meta.env
+  const configuredUrl = rawUrlCandidates.find(isValidHttpUrl);
+  const rawKeyCandidates = [
+    typeof import.meta !== "undefined" && import.meta.env
       ? import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
-      : undefined) ||
-    (typeof process !== "undefined" && process.env
+      : undefined,
+    typeof process !== "undefined" && process.env
       ? process.env.VITE_SUPABASE_ANON_KEY ||
         process.env.SUPABASE_ANON_KEY ||
         process.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
         process.env.SUPABASE_PUBLISHABLE_KEY
-      : undefined);
+      : undefined,
+  ];
+  const configuredKey = rawKeyCandidates.find(
+    (candidate) =>
+      typeof candidate === "string" &&
+      isValidSupabaseKey(candidate) &&
+      !candidate.startsWith("http://") &&
+      !candidate.startsWith("https://"),
+  );
 
-  // If the key was mistakenly provided as a URL or is missing/invalid, fallback to default key
-  if (
-    !SUPABASE_PUBLISHABLE_KEY ||
-    SUPABASE_PUBLISHABLE_KEY.startsWith("http://") ||
-    SUPABASE_PUBLISHABLE_KEY.startsWith("https://")
-  ) {
-    SUPABASE_PUBLISHABLE_KEY = MYQTV_ANON_KEY;
-  }
+  const configuredHost = configuredUrl ? new URL(configuredUrl).hostname.toLowerCase() : "";
+  const isSharedJubaProject = configuredHost === BLOCKED_SHARED_PROJECT_HOST;
+  const hasDedicatedProjectConfiguration =
+    !!configuredUrl && !!configuredKey && !isSharedJubaProject;
 
-  // If connected to myqtvbfibvgxkqwxvuru, ensure the key belongs to this project ref (prevent stale env tokens from other projects)
-  if (
-    SUPABASE_URL.includes(MYQTV_PROJECT_REF) &&
-    (!SUPABASE_PUBLISHABLE_KEY || !SUPABASE_PUBLISHABLE_KEY.includes(MYQTV_PROJECT_REF))
-  ) {
-    SUPABASE_PUBLISHABLE_KEY = MYQTV_ANON_KEY;
-  }
+  const SUPABASE_URL = hasDedicatedProjectConfiguration
+    ? configuredUrl!
+    : OFFLINE_SUPABASE_URL;
+  const SUPABASE_PUBLISHABLE_KEY = hasDedicatedProjectConfiguration
+    ? configuredKey!
+    : OFFLINE_SUPABASE_KEY;
 
-  if (!SUPABASE_PUBLISHABLE_KEY) {
-    SUPABASE_PUBLISHABLE_KEY = MYQTV_ANON_KEY;
-  }
-
-  if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
-    const missing = [
-      ...(!SUPABASE_URL ? ["SUPABASE_URL"] : []),
-      ...(!SUPABASE_PUBLISHABLE_KEY ? ["SUPABASE_PUBLISHABLE_KEY"] : []),
-    ];
-    const message = `Missing Supabase environment variable(s): ${missing.join(", ")}. Please check your environment variables.`;
-    console.error(`[Supabase] ${message}`);
-    throw new Error(message);
+  if (!hasDedicatedProjectConfiguration && typeof console !== "undefined") {
+    console.info(
+      "[Al-Mokhtar] No dedicated database configured; database calls are disabled and local storage is active.",
+    );
   }
 
   const customStorage =
@@ -168,6 +164,8 @@ function createSupabaseClient() {
 
   return createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
     global: {
+      // With the offline placeholder key this transport returns local empty
+      // results and never calls fetch(), so no request reaches Juba.
       fetch: createSupabaseFetch(SUPABASE_PUBLISHABLE_KEY),
     },
     auth: {
