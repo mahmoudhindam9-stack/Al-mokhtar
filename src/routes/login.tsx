@@ -14,11 +14,17 @@ export const Route = createFileRoute("/login")({
   component: LoginPage,
 });
 
+function isLocalBrowserHost(hostname: string): boolean {
+  const host = hostname.trim().toLowerCase();
+  return ["localhost", "127.0.0.1", "::1", "[::1]"].includes(host) || host.endsWith(".localhost");
+}
+
 function isHostedDeployment(): boolean {
-  // Keep server-rendered HTML consistent with the browser on production hosts.
-  if (typeof window === "undefined") return import.meta.env.PROD;
-  const host = window.location.hostname.toLowerCase();
-  return !["localhost", "127.0.0.1", "::1", "[::1]"].includes(host) && !host.endsWith(".localhost");
+  // In the browser, hostname takes precedence over production build mode:
+  // a production build served on localhost must use local credentials.
+  if (typeof window !== "undefined") return !isLocalBrowserHost(window.location.hostname);
+  // Server rendering has no browser hostname, so use the deployment build mode.
+  return import.meta.env.PROD;
 }
 
 function normalizeDigits(value: string): string {
@@ -100,9 +106,11 @@ function LoginPage() {
       const search = new URLSearchParams(window.location.search);
       const destination = safeInternalRedirect(search.get("redirect"));
 
-      // Public deployments must use a real Supabase session with a server-assigned admin role.
-      // The local default account must never grant access to the hosted ERP.
-      if (isHostedDeployment()) {
+      // Explicitly let localhost use local accounts even when the app was built in production mode.
+      // Only non-local browser hostnames may attempt hosted Supabase administrator sign-in.
+      const runningOnLocalHost =
+        typeof window !== "undefined" && isLocalBrowserHost(window.location.hostname);
+      if (isHostedDeployment() && !runningOnLocalHost) {
         localStorage.setItem("remember_me", rememberMe ? "true" : "false");
         const authenticated = await signInHostedAdminAccount(normalizedUsername, password);
         if (!authenticated) {
