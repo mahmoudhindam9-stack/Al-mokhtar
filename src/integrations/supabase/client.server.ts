@@ -62,7 +62,7 @@ function createSupabaseAdminClient() {
     SUPABASE_SERVICE_ROLE_KEY.startsWith("sb_anon_")
   ) {
     throw new Error(
-      "Privileged Supabase operations require SUPABASE_SERVICE_ROLE_KEY. A publishable/anon key is not accepted.",
+      "Privileged Al-Mokhtar operations require AL_MOKHTAR_SUPABASE_SERVICE_ROLE_KEY.",
     );
   }
 
