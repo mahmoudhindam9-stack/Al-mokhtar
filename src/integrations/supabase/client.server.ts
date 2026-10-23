@@ -49,7 +49,12 @@ function createSupabaseAdminClient() {
   const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   if (!SUPABASE_URL) {
-    throw new Error("Missing server-only SUPABASE_URL configuration.");
+    throw new Error("Missing Al-Mokhtar database configuration.");
+  }
+
+  const sharedProjectHost = "myqtvbfibvgxkqwxvuru.supabase.co";
+  if (new URL(SUPABASE_URL).hostname.toLowerCase() === sharedProjectHost) {
+    throw new Error("This database is not configured for Al-Mokhtar.");
   }
 
   if (
