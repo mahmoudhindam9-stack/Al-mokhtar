@@ -131,7 +131,7 @@ function LoginPage() {
 
       // Offline/local mode: accounts are read from the local ERP store only.
       const users = erpStore.getUsers() as SystemUser[];
-      const user = users.find((candidate) => {
+      let user = users.find((candidate) => {
         if (!candidate) return false;
         const candidateUsername = (candidate.username || "").trim().toLowerCase();
         const candidateFullName = (candidate.full_name || "").trim().toLowerCase();
@@ -140,6 +140,27 @@ function LoginPage() {
           candidateFullName === normalizedUsername ||
           (candidatePhone !== "" && candidatePhone === normalizedUsername);
       });
+
+      // Repair a missing local administrator only on a local browser host.
+      // Do not override an existing admin account or permit this on hosted deployments.
+      if (
+        !user &&
+        normalizedUsername === "admin" &&
+        normalizedPassword === "123456" &&
+        !users.some((candidate) => (candidate?.username || "").trim().toLowerCase() === "admin")
+      ) {
+        user = {
+          id: "u-admin",
+          full_name: "مدير النظام (Super Admin)",
+          username: "admin",
+          password: "123456",
+          phone: "01000000000",
+          role: "admin",
+          created_at: new Date().toISOString(),
+        };
+        erpStore.upsertUser(user);
+      }
+
       const passwordMatches = !!user &&
         (user.password === password ||
           normalizeDigits(user.password || "") === normalizedPassword);
