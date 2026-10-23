@@ -59,13 +59,11 @@ export const requireSupabaseAuth = createMiddleware({ type: "function" }).server
       process.env.VITE_AL_MOKHTAR_SUPABASE_ANON_KEY;
 
     // Protected cloud actions stay unavailable until a dedicated database is configured.
-    const configuredHost = SUPABASE_URL ? new URL(SUPABASE_URL).hostname.toLowerCase() : "";
     if (
       !SUPABASE_URL ||
       !SUPABASE_PUBLISHABLE_KEY ||
       (!SUPABASE_PUBLISHABLE_KEY.startsWith("eyJ") &&
-        !SUPABASE_PUBLISHABLE_KEY.startsWith("sb_publishable_") &&
-        !SUPABASE_PUBLISHABLE_KEY.startsWith("sb_secret_"))
+        !SUPABASE_PUBLISHABLE_KEY.startsWith("sb_publishable_"))
     ) {
       throw new Error("Al-Mokhtar database is not configured; remote authentication is disabled.");
     }
