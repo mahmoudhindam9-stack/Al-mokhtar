@@ -56,7 +56,8 @@ const roleLabels: Record<string, string> = {
 };
 
 function isHostedDeployment(): boolean {
-  if (typeof window === "undefined") return false;
+  // Keep server-rendered HTML consistent with the browser on production hosts.
+  if (typeof window === "undefined") return import.meta.env.PROD;
   const host = window.location.hostname.toLowerCase();
   return !["localhost", "127.0.0.1", "::1", "[::1]"].includes(host) && !host.endsWith(".localhost");
 }
