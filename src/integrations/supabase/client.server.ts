@@ -44,18 +44,15 @@ function createSupabaseFetch(supabaseKey: string): typeof fetch {
 }
 
 function createSupabaseAdminClient() {
-  const rawUrlCandidates = [process.env.SUPABASE_URL, process.env.VITE_SUPABASE_URL];
+  const rawUrlCandidates = [process.env.AL_MOKHTAR_SUPABASE_URL, process.env.VITE_AL_MOKHTAR_SUPABASE_URL];
   const SUPABASE_URL = rawUrlCandidates.find(isValidHttpUrl);
-  const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const SUPABASE_SERVICE_ROLE_KEY = process.env.AL_MOKHTAR_SUPABASE_SERVICE_ROLE_KEY;
 
   if (!SUPABASE_URL) {
     throw new Error("Missing Al-Mokhtar database configuration.");
   }
 
-  const sharedProjectHost = "myqtvbfibvgxkqwxvuru.supabase.co";
-  if (new URL(SUPABASE_URL).hostname.toLowerCase() === sharedProjectHost) {
-    throw new Error("This database is not configured for Al-Mokhtar.");
-  }
+  // Privileged access only reads configuration explicitly named for Al-Mokhtar.
 
   if (
     !SUPABASE_SERVICE_ROLE_KEY ||
