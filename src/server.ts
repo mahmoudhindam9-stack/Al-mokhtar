@@ -4,33 +4,18 @@ import { GoogleGenAI } from "@google/genai";
 import { consumeLastCapturedError } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
 
-// Remove malformed or shared-project database settings rather than assigning
-// an implicit database URL at runtime. Al-Mokhtar remains local until its own
-// database is explicitly configured.
-const BLOCKED_SHARED_PROJECT_HOST = "myqtvbfibvgxkqwxvuru.supabase.co";
-for (const key of ["VITE_SUPABASE_URL", "SUPABASE_URL"]) {
-  const value = process.env[key];
-  let removeValue = false;
-  if (value) {
-    try {
-      const parsed = new URL(value);
-      removeValue =
-        !["http:", "https:"].includes(parsed.protocol) ||
-        parsed.hostname.toLowerCase() === BLOCKED_SHARED_PROJECT_HOST;
-    } catch {
-      removeValue = true;
-    }
-  }
-  if (removeValue) {
-    delete process.env[key];
-    if (key === "VITE_SUPABASE_URL") {
-      delete process.env.VITE_SUPABASE_ANON_KEY;
-      delete process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-    } else {
-      delete process.env.SUPABASE_ANON_KEY;
-      delete process.env.SUPABASE_PUBLISHABLE_KEY;
-    }
-  }
+// Ignore generic Supabase variables inherited from AI Studio or another app.
+// Server-side database actions may only read explicitly named Al-Mokhtar settings.
+for (const key of [
+  "SUPABASE_URL",
+  "VITE_SUPABASE_URL",
+  "SUPABASE_ANON_KEY",
+  "VITE_SUPABASE_ANON_KEY",
+  "SUPABASE_PUBLISHABLE_KEY",
+  "VITE_SUPABASE_PUBLISHABLE_KEY",
+  "SUPABASE_SERVICE_ROLE_KEY",
+]) {
+  delete process.env[key];
 }
 
 type ServerEntry = {
