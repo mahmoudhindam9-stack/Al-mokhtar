@@ -7,7 +7,8 @@ function isNewSupabaseApiKey(value: string): boolean {
 }
 
 function isValidSupabaseKey(key: string): boolean {
-  return key.startsWith("eyJ") || isNewSupabaseApiKey(key);
+  // Browser clients may only use anon/publishable keys, never a secret key.
+  return key.startsWith("eyJ") || key.startsWith("sb_publishable_");
 }
 
 function isValidHttpUrl(url: string | undefined | null): boolean {
