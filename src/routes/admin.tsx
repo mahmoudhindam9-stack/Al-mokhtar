@@ -22,7 +22,7 @@ import {
   Settings,
   Wrench,
 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { hasDedicatedSupabaseConfiguration, supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { RestocashLogo } from "@/components/RestocashLogo";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
@@ -57,6 +57,8 @@ const nav = [
 ];
 
 function isHostedDeployment(): boolean {
+  // Cloud-only authentication is disabled until Al-Mokhtar has its own database.
+  if (!hasDedicatedSupabaseConfiguration()) return false;
   // AI Studio's editable preview must use the local ERP store, not a shared database.
   if (import.meta.env.DEV) return false;
   if (typeof window === "undefined") return import.meta.env.PROD;
