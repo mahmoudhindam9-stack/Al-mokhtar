@@ -20,9 +20,14 @@ function isLocalBrowserHost(hostname: string): boolean {
 }
 
 function isHostedDeployment(): boolean {
-  // In the browser, hostname takes precedence over production build mode:
-  // a production build served on localhost must use local credentials.
+  // Google AI Studio runs the editable preview in Vite development mode,
+  // sometimes on a non-local hostname. Keep that preview on the local ERP
+  // account path; public production builds must still use Supabase auth.
+  if (import.meta.env.DEV) return false;
+
+  // A production build served on localhost is still a local installation.
   if (typeof window !== "undefined") return !isLocalBrowserHost(window.location.hostname);
+
   // Server rendering has no browser hostname, so use the deployment build mode.
   return import.meta.env.PROD;
 }
