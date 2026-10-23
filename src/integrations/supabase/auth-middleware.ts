@@ -47,22 +47,26 @@ function createSupabaseFetch(supabaseKey: string): typeof fetch {
 
 export const requireSupabaseAuth = createMiddleware({ type: "function" }).server(
   async ({ next }) => {
-    const DEFAULT_SUPABASE_URL = "https://myqtvbfibvgxkqwxvuru.supabase.co";
     const rawUrlCandidates = [process.env.SUPABASE_URL, process.env.VITE_SUPABASE_URL];
-    const SUPABASE_URL = rawUrlCandidates.find(isValidHttpUrl) || DEFAULT_SUPABASE_URL;
-
-    let SUPABASE_PUBLISHABLE_KEY =
+    const SUPABASE_URL = rawUrlCandidates.find(isValidHttpUrl);
+    const SUPABASE_PUBLISHABLE_KEY =
       process.env.SUPABASE_PUBLISHABLE_KEY ||
       process.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
-      process.env.VITE_SUPABASE_ANON_KEY ||
-      "sb_publishable_srgqLn2ZvysGKh47yCQ0Kg_IW02yjDf";
+      process.env.VITE_SUPABASE_ANON_KEY;
 
+    // This protected middleware is unavailable until Al-Mokhtar has its own DB.
+    // Fail closed instead of using a shared Juba project or a baked-in public key.
+    const BLOCKED_SHARED_PROJECT_HOST = "myqtvbfibvgxkqwxvuru.supabase.co";
+    const configuredHost = SUPABASE_URL ? new URL(SUPABASE_URL).hostname.toLowerCase() : "";
     if (
+      !SUPABASE_URL ||
+      configuredHost === BLOCKED_SHARED_PROJECT_HOST ||
       !SUPABASE_PUBLISHABLE_KEY ||
-      SUPABASE_PUBLISHABLE_KEY.startsWith("http://") ||
-      SUPABASE_PUBLISHABLE_KEY.startsWith("https://")
+      (!SUPABASE_PUBLISHABLE_KEY.startsWith("eyJ") &&
+        !SUPABASE_PUBLISHABLE_KEY.startsWith("sb_publishable_") &&
+        !SUPABASE_PUBLISHABLE_KEY.startsWith("sb_secret_"))
     ) {
-      SUPABASE_PUBLISHABLE_KEY = "sb_publishable_srgqLn2ZvysGKh47yCQ0Kg_IW02yjDf";
+      throw new Error("Al-Mokhtar database is not configured; shared database access is disabled.");
     }
 
     const request = getRequest();
