@@ -48,12 +48,7 @@ async function signInHostedAdminAccount(username: string, password: string) {
   const normalized = username.trim().toLowerCase();
   const candidates = normalized.includes("@")
     ? [normalized]
-    : [
-        `${normalized}@restocash.local`,
-        `${normalized}@almokhtar.local`,
-        `${normalized}@mokhtar.local`,
-        `${normalized}@restocash.com`,
-      ];
+    : [`${normalized}@almokhtar.local`, `${normalized}@mokhtar.local`];
   for (const email of Array.from(new Set(candidates))) {
     try {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
@@ -65,7 +60,7 @@ async function signInHostedAdminAccount(username: string, password: string) {
       // Never leave a session authenticated if it lacks the required administrator role.
       await supabase.auth.signOut().catch(() => undefined);
     } catch {
-      // Try the next supported legacy email suffix.
+      // Try the next supported Al-Mokhtar account alias.
     }
   }
   return null;
@@ -75,12 +70,9 @@ async function signInCloudAccount(username: string, password: string) {
   if (typeof navigator !== "undefined" && !navigator.onLine) return null;
   const normalized = username.trim().toLowerCase();
   const base = normalized.includes("@") ? normalized.split("@")[0] : normalized;
-  const candidates = Array.from(new Set([
-    normalized.includes("@") ? normalized : `${base}@restocash.local`,
-    `${base}@almokhtar.local`,
-    `${base}@mokhtar.local`,
-    `${base}@restocash.com`,
-  ].filter(Boolean)));
+  const candidates = Array.from(new Set(
+    normalized.includes("@") ? [normalized] : [`${base}@almokhtar.local`, `${base}@mokhtar.local`],
+  ));
   for (const email of candidates) {
     try {
       const { data } = await supabase.auth.signInWithPassword({ email, password });
