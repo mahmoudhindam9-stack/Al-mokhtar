@@ -184,3 +184,10 @@ export const supabase = new Proxy({} as ReturnType<typeof createSupabaseClient>,
     return Reflect.get(_supabase, prop, receiver);
   },
 });
+
+// True only when an explicit Al-Mokhtar-specific cloud URL and public key were
+// configured. The offline placeholder must never be treated as a cloud project.
+export function hasDedicatedSupabaseConfiguration(): boolean {
+  const url = String((supabase as any).supabaseUrl || "").replace(/\/$/, "");
+  return !!url && url !== "http://127.0.0.1:54321";
+}
