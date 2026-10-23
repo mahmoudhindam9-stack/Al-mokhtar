@@ -224,42 +224,7 @@ $$;
 
 REVOKE ALL ON FUNCTION public.handle_new_user() FROM PUBLIC, anon, authenticated;
 
--- Promote the legacy seeded admin in server-controlled app_metadata. If its
--- password is still the known seed value, replace it with an unshared random
--- value so the public default credential cannot log in anymore.
-DO $$
-DECLARE
-  v_admin_id uuid;
-  v_password_hash text;
-  v_temporary_password text;
-BEGIN
-  SELECT id, encrypted_password
-    INTO v_admin_id, v_password_hash
-  FROM auth.users
-  WHERE email = 'admin@restocash.com'
-  LIMIT 1;
-
-  IF v_admin_id IS NOT NULL THEN
-    IF v_password_hash IS NOT NULL
-       AND extensions.crypt('123456', v_password_hash) = v_password_hash THEN
-      v_temporary_password := encode(extensions.gen_random_bytes(32), 'hex');
-      UPDATE auth.users
-      SET encrypted_password = extensions.crypt(v_temporary_password, extensions.gen_salt('bf')),
-          raw_app_meta_data = COALESCE(raw_app_meta_data, '{}'::jsonb)
-            || jsonb_build_object('role', 'admin'),
-          updated_at = now()
-      WHERE id = v_admin_id;
-    ELSE
-      UPDATE auth.users
-      SET raw_app_meta_data = COALESCE(raw_app_meta_data, '{}'::jsonb)
-            || jsonb_build_object('role', 'admin'),
-          updated_at = now()
-      WHERE id = v_admin_id;
-    END IF;
-
-    UPDATE public.profiles SET role = 'admin', updated_at = now()
-    WHERE id = v_admin_id;
-  END IF;
-END $$;
+-- Do not promote or alter a default administrator account from another application.
+-- Provision a future Al-Mokhtar cloud administrator only in its dedicated project.
 
 COMMIT;
