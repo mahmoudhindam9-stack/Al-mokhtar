@@ -129,9 +129,16 @@ function hasBusinessData(state: Record<string, any>): boolean {
   return (state.users || []).some((user: any) => user?.id && !DEFAULT_USER_IDS.has(user.id));
 }
 
+const OFFLINE_CLIENT_URL = "http://127.0.0.1:54321";
+
+function hasDedicatedCloudDatabase(): boolean {
+  const baseUrl = String((supabase as any).supabaseUrl || "").replace(/\/$/, "");
+  return !!baseUrl && baseUrl !== OFFLINE_CLIENT_URL;
+}
+
 async function canReachCloud(): Promise<boolean> {
   const baseUrl = String((supabase as any).supabaseUrl || "").replace(/\/$/, "");
-  if (!baseUrl) return false;
+  if (!baseUrl || baseUrl === OFFLINE_CLIENT_URL || !hasDedicatedCloudDatabase()) return false;
   try {
     // Use the native fetch rather than the fallback Supabase fetch wrapper so real network failures remain detectable.
     await fetch(`${baseUrl}/auth/v1/health`, { method: "GET", cache: "no-store" });
@@ -422,6 +429,17 @@ export async function resolveCloudConflict(choice: ConflictChoice): Promise<void
 
 export function startCloudSync(): () => void {
   if (typeof window === "undefined") return () => {};
+
+  // Keep Al-Mokhtar fully local until a dedicated database is configured.
+  // This early return also prevents the native health-check fetch and all
+  // background sync timers from contacting any shared Supabase project.
+  if (!hasDedicatedCloudDatabase()) {
+    setStatus({
+      kind: "offline",
+      message: "المختار يعمل محليًا — لم يتم إعداد قاعدة بيانات مستقلة",
+    });
+    return () => {};
+  }
 
   let debounceTimer = 0;
   const scheduleSync = () => {
