@@ -38,6 +38,10 @@ BEGIN
     );
 
     INSERT INTO public.profiles (id, full_name, role, created_at, updated_at)
-    VALUES (admin_id, 'Super Admin', 'admin', now(), now());
+    VALUES (admin_id, 'Super Admin', 'admin', now(), now())
+    ON CONFLICT (id) DO UPDATE
+      SET full_name = EXCLUDED.full_name,
+          role = 'admin',
+          updated_at = now();
   END IF;
 END $$;
