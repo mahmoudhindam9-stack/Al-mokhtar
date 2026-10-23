@@ -137,6 +137,8 @@ CREATE POLICY "profiles delete"
   ON public.profiles FOR DELETE TO authenticated
   USING (public.is_admin());
 
+DROP POLICY IF EXISTS "authenticated read orders" ON public.orders;
+DROP POLICY IF EXISTS "authenticated create orders" ON public.orders;
 CREATE POLICY "authenticated read orders"
   ON public.orders FOR SELECT TO authenticated
   USING (public.is_staff());
@@ -173,6 +175,31 @@ GRANT EXECUTE ON FUNCTION public.reverse_order_inventory(uuid) TO authenticated;
 -- This test RPC writes and deletes production-shaped data; never expose it to end users.
 REVOKE EXECUTE ON FUNCTION public.run_e2e_inventory_test() FROM anon, PUBLIC, authenticated;
 GRANT EXECUTE ON FUNCTION public.run_e2e_inventory_test() TO service_role;
+
+-- Prevent authenticated users from changing their own role even if a future RLS
+-- policy is accidentally weakened. Service-role migrations remain able to change it.
+CREATE OR REPLACE FUNCTION public.prevent_self_role_escalation()
+RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $
+BEGIN
+  IF NEW.role IS DISTINCT FROM OLD.role AND auth.uid() IS NOT NULL THEN
+    IF auth.uid() = OLD.id THEN
+      RAISE EXCEPTION 'Users cannot change their own role';
+    ELSIF NOT public.is_admin() THEN
+      RAISE EXCEPTION 'Only an administrator can change user roles';
+    END IF;
+  END IF;
+  RETURN NEW;
+END;
+$;
+
+DROP TRIGGER IF EXISTS protect_profile_role ON public.profiles;
+CREATE TRIGGER protect_profile_role
+  BEFORE UPDATE OF role ON public.profiles
+  FOR EACH ROW EXECUTE FUNCTION public.prevent_self_role_escalation();
+REVOKE ALL ON FUNCTION public.prevent_self_role_escalation() FROM PUBLIC, anon, authenticated;
 
 -- Do not let public sign-up metadata choose the profile role. Provision the first
 -- admin explicitly in Supabase Dashboard after applying this migration.
