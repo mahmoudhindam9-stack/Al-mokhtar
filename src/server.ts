@@ -4,20 +4,33 @@ import { GoogleGenAI } from "@google/genai";
 import { consumeLastCapturedError } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
 
-// Sanitize malformed environment variables (e.g. if an API key was mistakenly assigned to SUPABASE_URL)
-if (
-  process.env.VITE_SUPABASE_URL &&
-  !process.env.VITE_SUPABASE_URL.startsWith("http://") &&
-  !process.env.VITE_SUPABASE_URL.startsWith("https://")
-) {
-  process.env.VITE_SUPABASE_URL = "https://myqtvbfibvgxkqwxvuru.supabase.co";
-}
-if (
-  process.env.SUPABASE_URL &&
-  !process.env.SUPABASE_URL.startsWith("http://") &&
-  !process.env.SUPABASE_URL.startsWith("https://")
-) {
-  process.env.SUPABASE_URL = "https://myqtvbfibvgxkqwxvuru.supabase.co";
+// Remove malformed or shared-project database settings rather than assigning
+// an implicit database URL at runtime. Al-Mokhtar remains local until its own
+// database is explicitly configured.
+const BLOCKED_SHARED_PROJECT_HOST = "myqtvbfibvgxkqwxvuru.supabase.co";
+for (const key of ["VITE_SUPABASE_URL", "SUPABASE_URL"]) {
+  const value = process.env[key];
+  let removeValue = false;
+  if (value) {
+    try {
+      const parsed = new URL(value);
+      removeValue =
+        !["http:", "https:"].includes(parsed.protocol) ||
+        parsed.hostname.toLowerCase() === BLOCKED_SHARED_PROJECT_HOST;
+    } catch {
+      removeValue = true;
+    }
+  }
+  if (removeValue) {
+    delete process.env[key];
+    if (key === "VITE_SUPABASE_URL") {
+      delete process.env.VITE_SUPABASE_ANON_KEY;
+      delete process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+    } else {
+      delete process.env.SUPABASE_ANON_KEY;
+      delete process.env.SUPABASE_PUBLISHABLE_KEY;
+    }
+  }
 }
 
 type ServerEntry = {
